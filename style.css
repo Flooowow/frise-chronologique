@@ -1,1 +1,14 @@
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+#root {
+  height: 100%;
+}
+
+/* optionnel : petits réglages */
+input[type="range"] {
+  accent-color: #2563eb;
+}
 
