@@ -1,3 +1,39 @@
+const { useState, useRef, useEffect } = React;
+const { Plus, Settings, Trash2, Edit2 } = lucide;
+
+function TimelineApp() {
+  const [menuOpen, setMenuOpen] = useState(true);
+  const [settings, setSettings] = useState({
+    startYear: -500,
+    endYear: 2000,
+    scale: 100,
+    pagesH: 3,
+    pagesV: 2
+  });
+  const [events, setEvents] = useState([]);
+  const [periods, setPeriods] = useState([]);
+  const [artistPeriods, setArtistPeriods] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [timelineOffset, setTimelineOffset] = useState(300);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [resizingItem, setResizingItem] = useState(null);
+  const canvasRef = useRef(null);
+
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [showArtistModal, setShowArtistModal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+
+  const [eventForm, setEventForm] = useState({ name: '', year: '', image: null, y: 100, width: 120, height: 120 });
+  const [periodForm, setPeriodForm] = useState({ name: '', startYear: '', endYear: '', color: '#4299e1', y: 50, height: 40 });
+  const [artistForm, setArtistForm] = useState({ name: '', birthYear: '', deathYear: '', y: 200 });
+
+  const pageWidth = 1400;
+  const pageHeight = 800;
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Settings, Trash2, Edit2, GripVertical, ZoomIn, ZoomOut } from 'lucide-react';
 
@@ -848,3 +884,6 @@ export default function TimelineApp() {
     </div>
   );
 }
+// Render l'application
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<TimelineApp />);
