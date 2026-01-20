@@ -1,866 +1,622 @@
-const { useState, useRef, useEffect } = React;
-
-function TimelineApp() {
-  const [menuOpen, setMenuOpen] = useState(true);
-  const [settings, setSettings] = useState({
+// Variables globales
+let events = [];
+let periods = [];
+let artists = [];
+let selectedItem = null;
+let settings = {
     startYear: -500,
     endYear: 2000,
-    scale: 100,
-    pagesH: 3,
-    pagesV: 2
-  });
-
-  const [events, setEvents] = useState([]);
-  const [periods, setPeriods] = useState([]);
-  const [artistPeriods, setArtistPeriods] = useState([]);
-  const [selectedItem, setSelectedItem] = useState(null);
-
-  const [timelineOffset, setTimelineOffset] = useState(300);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [resizingItem, setResizingItem] = useState(null);
-
-  const canvasRef = useRef(null);
-
-  // Modals
-  const [showEventModal, setShowEventModal] = useState(false);
-  const [showPeriodModal, setShowPeriodModal] = useState(false);
-  const [showArtistModal, setShowArtistModal] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-
-  // Forms
-  const [eventForm, setEventForm] = useState({
-    name: '',
-    year: '',
-    image: null,
-    y: 100,
-    width: 120,
-    height: 120
-  });
-  const [periodForm, setPeriodForm] = useState({
-    name: '',
-    startYear: '',
-    endYear: '',
-    color: '#4299e1',
-    y: 50,
-    height: 40
-  });
-  const [artistForm, setArtistForm] = useState({
-    name: '',
-    birthYear: '',
-    deathYear: '',
-    y: 200
-  });
-
-  const pageWidth = 1400;
-  const pageHeight = 800;
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setEventForm({ ...eventForm, image: ev.target.result });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const addEvent = () => {
-    if (eventForm.name && eventForm.year && eventForm.image) {
-      if (editMode && selectedItem) {
-        setEvents(events.map(e => (e.id === selectedItem.id ? { ...eventForm, id: selectedItem.id } : e)));
-      } else {
-        setEvents([...events, { ...eventForm, id: Date.now() }]);
-      }
-      setEventForm({ name: '', year: '', image: null, y: 100, width: 120, height: 120 });
-      setShowEventModal(false);
-      setEditMode(false);
-      setSelectedItem(null);
-    }
-  };
-
-  const addPeriod = () => {
-    if (periodForm.name && periodForm.startYear && periodForm.endYear) {
-      if (editMode && selectedItem) {
-        setPeriods(periods.map(p => (p.id === selectedItem.id ? { ...periodForm, id: selectedItem.id } : p)));
-      } else {
-        setPeriods([...periods, { ...periodForm, id: Date.now() }]);
-      }
-      setPeriodForm({ name: '', startYear: '', endYear: '', color: '#4299e1', y: 50, height: 40 });
-      setShowPeriodModal(false);
-      setEditMode(false);
-      setSelectedItem(null);
-    }
-  };
-
-  const addArtist = () => {
-    if (artistForm.name && artistForm.birthYear && artistForm.deathYear) {
-      if (editMode && selectedItem) {
-        setArtistPeriods(artistPeriods.map(a => (a.id === selectedItem.id ? { ...artistForm, id: selectedItem.id } : a)));
-      } else {
-        setArtistPeriods([...artistPeriods, { ...artistForm, id: Date.now() }]);
-      }
-      setArtistForm({ name: '', birthYear: '', deathYear: '', y: 200 });
-      setShowArtistModal(false);
-      setEditMode(false);
-      setSelectedItem(null);
-    }
-  };
-
-  const deleteItem = (item, type) => {
-    if (type === 'event') setEvents(events.filter(e => e.id !== item.id));
-    if (type === 'period') setPeriods(periods.filter(p => p.id !== item.id));
-    if (type === 'artist') setArtistPeriods(artistPeriods.filter(a => a.id !== item.id));
-    setSelectedItem(null);
-  };
-
-  const editItem = (item, type) => {
-    setSelectedItem({ ...item, type });
-    setEditMode(true);
-
-    if (type === 'event') {
-      setEventForm(item);
-      setShowEventModal(true);
-    } else if (type === 'period') {
-      setPeriodForm(item);
-      setShowPeriodModal(true);
-    } else if (type === 'artist') {
-      setArtistForm(item);
-      setShowArtistModal(true);
-    }
-  };
-
-  const yearToX = (year) => {
-    const totalYears = settings.endYear - settings.startYear;
-    const totalWidth = pageWidth * settings.pagesH;
-    return ((year - settings.startYear) / totalYears) * totalWidth;
-  };
-
-  // Pan global
-  const handleCanvasMouseDown = (e) => {
-    if (e.target === canvasRef.current || e.target.tagName === 'svg') {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - viewOffset.x, y: e.clientY - viewOffset.y });
-    }
-  };
-
-  const handleCanvasMouseMove = (e) => {
-    if (isDragging) {
-      setViewOffset({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      });
-    }
-  };
-
-  const handleCanvasMouseUp = () => setIsDragging(false);
-
-  // Drag events (cartes)
-  const handleEventMouseDown = (e, event) => {
-    e.stopPropagation();
-    if (!e.target.classList.contains('resize-corner')) {
-      setDraggedItem({ item: event, type: 'event', startY: e.clientY - event.y });
-    }
-  };
-
-  const handleEventMouseMove = (e) => {
-    if (draggedItem && draggedItem.type === 'event') {
-      const newY = e.clientY - draggedItem.startY;
-      setEvents(events.map(ev => (ev.id === draggedItem.item.id ? { ...ev, y: Math.max(0, newY) } : ev)));
-    }
-  };
-
-  const handleEventMouseUp = () => setDraggedItem(null);
-
-  // Resize events (coin)
-  const handleCornerResizeStart = (e, event) => {
-    e.stopPropagation();
-    setResizingItem({
-      item: event,
-      type: 'corner',
-      startX: e.clientX,
-      startY: e.clientY,
-      startWidth: event.width,
-      startHeight: event.height
-    });
-  };
-
-  const handleCornerResizeMove = (e) => {
-    if (resizingItem && resizingItem.type === 'corner') {
-      const deltaX = e.clientX - resizingItem.startX;
-      const deltaY = e.clientY - resizingItem.startY;
-      const delta = Math.max(deltaX, deltaY);
-      const newWidth = Math.max(80, resizingItem.startWidth + delta);
-      const newHeight = Math.max(80, resizingItem.startHeight + delta);
-
-      setEvents(events.map(ev => (ev.id === resizingItem.item.id ? { ...ev, width: newWidth, height: newHeight } : ev)));
-    }
-  };
-
-  const handleResizeEnd = () => setResizingItem(null);
-
-  // Drag periods
-  const handlePeriodMouseDown = (e, period) => {
-    e.stopPropagation();
-    if (!e.target.classList.contains('resize-handle-period')) {
-      setDraggedItem({
-        item: period,
-        type: 'period',
-        startY: e.clientY - period.y,
-        startX: e.clientX - yearToX(parseInt(period.startYear, 10))
-      });
-    }
-  };
-
-  const handlePeriodMouseMove = (e) => {
-    if (draggedItem && draggedItem.type === 'period') {
-      const newY = e.clientY - draggedItem.startY;
-      const newX = e.clientX - draggedItem.startX;
-
-      const newStartYear = Math.round(
-        (newX / (pageWidth * settings.pagesH)) * (settings.endYear - settings.startYear) + settings.startYear
-      );
-      const duration = parseInt(draggedItem.item.endYear, 10) - parseInt(draggedItem.item.startYear, 10);
-      const newEndYear = newStartYear + duration;
-
-      setPeriods(periods.map(p =>
-        p.id === draggedItem.item.id
-          ? { ...p, y: Math.max(0, newY), startYear: String(newStartYear), endYear: String(newEndYear) }
-          : p
-      ));
-    }
-  };
-
-  // Drag artists
-  const handleArtistMouseDown = (e, artist) => {
-    e.stopPropagation();
-    setDraggedItem({
-      item: artist,
-      type: 'artist',
-      startY: e.clientY - artist.y,
-      startX: e.clientX - yearToX(parseInt(artist.birthYear, 10))
-    });
-  };
-
-  const handleArtistMouseMove = (e) => {
-    if (draggedItem && draggedItem.type === 'artist') {
-      const newY = e.clientY - draggedItem.startY;
-      const newX = e.clientX - draggedItem.startX;
-
-      const newBirthYear = Math.round(
-        (newX / (pageWidth * settings.pagesH)) * (settings.endYear - settings.startYear) + settings.startYear
-      );
-      const duration = parseInt(draggedItem.item.deathYear, 10) - parseInt(draggedItem.item.birthYear, 10);
-      const newDeathYear = newBirthYear + duration;
-
-      setArtistPeriods(artistPeriods.map(a =>
-        a.id === draggedItem.item.id
-          ? { ...a, y: Math.max(0, newY), birthYear: String(newBirthYear), deathYear: String(newDeathYear) }
-          : a
-      ));
-    }
-  };
-
-  // Resize periods
-  const handlePeriodResizeStart = (e, period) => {
-    e.stopPropagation();
-    setResizingItem({ item: period, type: 'period', startY: e.clientY, startHeight: period.height });
-  };
-
-  const handlePeriodResizeMove = (e) => {
-    if (resizingItem && resizingItem.type === 'period') {
-      const deltaY = e.clientY - resizingItem.startY;
-      const newHeight = Math.max(30, resizingItem.startHeight + deltaY);
-
-      setPeriods(periods.map(p => (p.id === resizingItem.item.id ? { ...p, height: newHeight } : p)));
-    }
-  };
-
-  // Listeners window (drag & resize)
-  useEffect(() => {
-    if (!isDragging) return;
-
-    window.addEventListener('mousemove', handleCanvasMouseMove);
-    window.addEventListener('mouseup', handleCanvasMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleCanvasMouseMove);
-      window.removeEventListener('mouseup', handleCanvasMouseUp);
-    };
-  }, [isDragging, dragStart, viewOffset]);
-
-  useEffect(() => {
-    if (!draggedItem) return;
-
-    if (draggedItem.type === 'event') {
-      window.addEventListener('mousemove', handleEventMouseMove);
-      window.addEventListener('mouseup', handleEventMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handleEventMouseMove);
-        window.removeEventListener('mouseup', handleEventMouseUp);
-      };
-    }
-
-    if (draggedItem.type === 'period') {
-      window.addEventListener('mousemove', handlePeriodMouseMove);
-      window.addEventListener('mouseup', handleEventMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handlePeriodMouseMove);
-        window.removeEventListener('mouseup', handleEventMouseUp);
-      };
-    }
-
-    if (draggedItem.type === 'artist') {
-      window.addEventListener('mousemove', handleArtistMouseMove);
-      window.addEventListener('mouseup', handleEventMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handleArtistMouseMove);
-        window.removeEventListener('mouseup', handleEventMouseUp);
-      };
-    }
-  }, [draggedItem, events, periods, artistPeriods]);
-
-  useEffect(() => {
-    if (!resizingItem) return;
-
-    if (resizingItem.type === 'period') {
-      window.addEventListener('mousemove', handlePeriodResizeMove);
-      window.addEventListener('mouseup', handleResizeEnd);
-      return () => {
-        window.removeEventListener('mousemove', handlePeriodResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
-      };
-    }
-
-    if (resizingItem.type === 'corner') {
-      window.addEventListener('mousemove', handleCornerResizeMove);
-      window.addEventListener('mouseup', handleResizeEnd);
-      return () => {
-        window.removeEventListener('mousemove', handleCornerResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
-      };
-    }
-  }, [resizingItem, events, periods]);
-
-  return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
-      {/* Sidebar */}
-      <div className={`bg-white shadow-lg transition-all duration-300 ${menuOpen ? 'w-80' : 'w-0'} overflow-hidden`}>
-        <div className="p-6 h-full overflow-y-auto">
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Paramètres</h2>
-
-          <div className="space-y-4 mb-6">
-            <h3 className="font-semibold text-lg text-gray-700">Frise</h3>
-
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Année début</label>
-              <input
-                type="number"
-                value={settings.startYear}
-                onChange={(e) => setSettings({ ...settings, startYear: parseInt(e.target.value, 10) })}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Année fin</label>
-              <input
-                type="number"
-                value={settings.endYear}
-                onChange={(e) => setSettings({ ...settings, endYear: parseInt(e.target.value, 10) })}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Échelle (graduation)</label>
-              <input
-                type="number"
-                value={settings.scale}
-                onChange={(e) => setSettings({ ...settings, scale: parseInt(e.target.value, 10) })}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Pages horizontales</label>
-              <input
-                type="number"
-                min="1"
-                value={settings.pagesH}
-                onChange={(e) => setSettings({ ...settings, pagesH: parseInt(e.target.value, 10) })}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Pages verticales</label>
-              <input
-                type="number"
-                min="1"
-                value={settings.pagesV}
-                onChange={(e) => setSettings({ ...settings, pagesV: parseInt(e.target.value, 10) })}
-                className="w-full px-3 py-2 border rounded"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Position frise (Y)</label>
-              <input
-                type="range"
-                min="50"
-                max="600"
-                value={timelineOffset}
-                onChange={(e) => setTimelineOffset(parseInt(e.target.value, 10))}
-                className="w-full"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <button
-              onClick={() => { setShowEventModal(true); setEditMode(false); }}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded flex items-center justify-center gap-2 hover:bg-blue-700"
-            >
-              <span className="font-bold">+</span> Ajouter événement
-            </button>
-
-            <button
-              onClick={() => { setShowPeriodModal(true); setEditMode(false); }}
-              className="w-full bg-purple-600 text-white py-2 px-4 rounded flex items-center justify-center gap-2 hover:bg-purple-700"
-            >
-              <span className="font-bold">+</span> Ajouter période
-            </button>
-
-            <button
-              onClick={() => { setShowArtistModal(true); setEditMode(false); }}
-              className="w-full bg-green-600 text-white py-2 px-4 rounded flex items-center justify-center gap-2 hover:bg-green-700"
-            >
-              <span className="font-bold">+</span> Ajouter artiste
-            </button>
-          </div>
-
-          {selectedItem && (
-            <div className="mt-6 p-4 bg-gray-50 rounded">
-              <h4 className="font-semibold mb-3">Élément sélectionné</h4>
-              <div className="space-y-2">
-                <button
-                  onClick={() => editItem(selectedItem, selectedItem.type)}
-                  className="w-full bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600"
-                >
-                  Modifier
-                </button>
-                <button
-                  onClick={() => deleteItem(selectedItem, selectedItem.type)}
-                  className="w-full bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Toggle */}
-      <button
-        onClick={() => setMenuOpen(!menuOpen)}
-        className="fixed left-0 top-1/2 bg-blue-600 text-white p-2 rounded-r z-50 hover:bg-blue-700"
-      >
-        {menuOpen ? '◀' : '▶'}
-      </button>
-
-      {/* Canvas */}
-      <div
-        ref={canvasRef}
-        className="flex-1 overflow-auto relative bg-gray-50"
-        onMouseDown={handleCanvasMouseDown}
-        style={{
-          cursor: isDragging ? 'grabbing' : 'grab',
-          width: '100%',
-          height: '100%'
-        }}
-      >
-        <div
-          className="relative"
-          style={{
-            width: pageWidth * settings.pagesH,
-            height: pageHeight * settings.pagesV,
-            transform: `translate(${viewOffset.x}px, ${viewOffset.y}px)`,
-            minWidth: pageWidth * settings.pagesH,
-            minHeight: pageHeight * settings.pagesV
-          }}
-        >
-          <svg width={pageWidth * settings.pagesH} height={pageHeight * settings.pagesV}>
-            {/* Timeline */}
-            <rect
-              x={0}
-              y={timelineOffset - 20}
-              width={pageWidth * settings.pagesH}
-              height={40}
-              fill="#1a202c"
-              stroke="#000"
-              strokeWidth="2"
-            />
-
-            {/* Graduations */}
-            {(() => {
-              const graduations = [];
-              for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
-                const x = yearToX(year);
-                graduations.push(
-                  <g key={year}>
-                    <line x1={x} y1={timelineOffset - 20} x2={x} y2={timelineOffset + 20} stroke="#fff" strokeWidth="3" />
-                    <text
-                      x={x}
-                      y={timelineOffset}
-                      fill="white"
-                      fontSize="16"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                    >
-                      {year}
-                    </text>
-                  </g>
-                );
-              }
-              return graduations;
-            })()}
-
-            {/* Periods */}
-            {periods.map(period => {
-              const startX = yearToX(parseInt(period.startYear, 10));
-              const endX = yearToX(parseInt(period.endYear, 10));
-              return (
-                <g
-                  key={period.id}
-                  onMouseDown={(e) => handlePeriodMouseDown(e.nativeEvent, period)}
-                  onClick={(e) => { e.stopPropagation(); setSelectedItem({ ...period, type: 'period' }); }}
-                  style={{ cursor: draggedItem?.item.id === period.id ? 'grabbing' : 'grab' }}
-                >
-                  <rect
-                    x={startX}
-                    y={period.y}
-                    width={endX - startX}
-                    height={period.height}
-                    fill={period.color}
-                    opacity="0.8"
-                    stroke={selectedItem?.id === period.id ? '#000' : 'none'}
-                    strokeWidth="3"
-                  />
-                  <text
-                    x={startX + (endX - startX) / 2}
-                    y={period.y + period.height / 2 - 8}
-                    fill="white"
-                    fontSize="13"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    pointerEvents="none"
-                  >
-                    {period.name}
-                  </text>
-                  <text
-                    x={startX + (endX - startX) / 2}
-                    y={period.y + period.height / 2 + 8}
-                    fill="white"
-                    fontSize="11"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    pointerEvents="none"
-                  >
-                    {period.startYear} - {period.endYear}
-                  </text>
-
-                  <rect
-                    className="resize-handle-period"
-                    x={startX}
-                    y={period.y + period.height - 8}
-                    width={endX - startX}
-                    height={8}
-                    fill="rgba(255,255,255,0.3)"
-                    style={{ cursor: 'ns-resize' }}
-                    onMouseDown={(e) => handlePeriodResizeStart(e.nativeEvent, period)}
-                  />
-                </g>
-              );
-            })}
-
-            {/* Artist periods */}
-            {artistPeriods.map(artist => {
-              const birthX = yearToX(parseInt(artist.birthYear, 10));
-              const deathX = yearToX(parseInt(artist.deathYear, 10));
-              return (
-                <g
-                  key={artist.id}
-                  onMouseDown={(e) => handleArtistMouseDown(e.nativeEvent, artist)}
-                  onClick={(e) => { e.stopPropagation(); setSelectedItem({ ...artist, type: 'artist' }); }}
-                  style={{ cursor: draggedItem?.item.id === artist.id ? 'grabbing' : 'grab' }}
-                >
-                  <line
-                    x1={birthX}
-                    y1={artist.y}
-                    x2={deathX}
-                    y2={artist.y}
-                    stroke={selectedItem?.id === artist.id ? '#000' : '#666'}
-                    strokeWidth={selectedItem?.id === artist.id ? '4' : '2'}
-                    strokeDasharray="5,5"
-                  />
-                  <circle cx={birthX} cy={artist.y} r="5" fill="#333" />
-                  <circle cx={deathX} cy={artist.y} r="5" fill="#333" />
-                  <text
-                    x={birthX + (deathX - birthX) / 2}
-                    y={artist.y - 10}
-                    fill="#333"
-                    fontSize="12"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    pointerEvents="none"
-                  >
-                    {artist.name}
-                  </text>
-                  <text
-                    x={birthX + (deathX - birthX) / 2}
-                    y={artist.y + 18}
-                    fill="#666"
-                    fontSize="10"
-                    textAnchor="middle"
-                    pointerEvents="none"
-                  >
-                    {artist.birthYear} à {artist.deathYear}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-
-          {/* Events (HTML overlays) */}
-          {events.map(event => {
-            const x = yearToX(parseInt(event.year, 10));
-            return (
-              <div
-                key={event.id}
-                onMouseDown={(e) => handleEventMouseDown(e, event)}
-                onClick={(e) => { e.stopPropagation(); setSelectedItem({ ...event, type: 'event' }); }}
-                style={{
-                  position: 'absolute',
-                  left: x - event.width / 2,
-                  top: event.y,
-                  width: event.width,
-                  height: event.height,
-                  cursor: draggedItem?.item.id === event.id ? 'grabbing' : 'grab',
-                  border: selectedItem?.id === event.id ? '3px solid #000' : '2px solid #ccc',
-                  userSelect: 'none'
-                }}
-                className="bg-white rounded shadow-lg p-2 flex flex-col items-center"
-              >
-                <img
-                  src={event.image}
-                  alt={event.name}
-                  style={{
-                    width: '100%',
-                    height: event.height - 40,
-                    objectFit: 'cover',
-                    pointerEvents: 'none'
-                  }}
-                  className="rounded"
-                />
-                <div className="text-center text-xs mt-1 font-semibold" style={{ pointerEvents: 'none' }}>
-                  {event.name}
-                </div>
-                <div className="text-center text-xs text-gray-600" style={{ pointerEvents: 'none' }}>
-                  {event.year}
-                </div>
-
-                <div
-                  className="resize-corner"
-                  onMouseDown={(e) => handleCornerResizeStart(e, event)}
-                  style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    right: 0,
-                    width: 16,
-                    height: 16,
-                    cursor: 'nwse-resize',
-                    background: 'linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.3) 50%)',
-                    borderBottomRightRadius: 4
-                  }}
-                />
-
-                <svg
-                  style={{
-                    position: 'absolute',
-                    top: event.height,
-                    left: event.width / 2,
-                    width: 2,
-                    height: Math.abs(timelineOffset - event.y - event.height),
-                    pointerEvents: 'none'
-                  }}
-                >
-                  <line
-                    x1="1"
-                    y1="0"
-                    x2="1"
-                    y2={Math.abs(timelineOffset - event.y - event.height)}
-                    stroke="#666"
-                    strokeWidth="2"
-                    strokeDasharray="4"
-                  />
-                </svg>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Event Modal */}
-      {showEventModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h3 className="text-xl font-bold mb-4">{editMode ? 'Modifier' : 'Ajouter'} un événement</h3>
-
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Nom de l'œuvre"
-                value={eventForm.name}
-                onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <input
-                type="number"
-                placeholder="Année"
-                value={eventForm.year}
-                onChange={(e) => setEventForm({ ...eventForm, year: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="w-full px-3 py-2 border rounded"
-              />
-
-              {eventForm.image && (
-                <img src={eventForm.image} alt="Preview" className="w-full h-32 object-cover rounded" />
-              )}
-
-              <div className="flex gap-2">
-                <button onClick={addEvent} className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-                  {editMode ? 'Modifier' : 'Ajouter'}
-                </button>
-                <button
-                  onClick={() => { setShowEventModal(false); setEditMode(false); }}
-                  className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500"
-                >
-                  Annuler
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Period Modal */}
-      {showPeriodModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h3 className="text-xl font-bold mb-4">{editMode ? 'Modifier' : 'Ajouter'} une période</h3>
-
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Nom de la période"
-                value={periodForm.name}
-                onChange={(e) => setPeriodForm({ ...periodForm, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <input
-                type="number"
-                placeholder="Année début"
-                value={periodForm.startYear}
-                onChange={(e) => setPeriodForm({ ...periodForm, startYear: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <input
-                type="number"
-                placeholder="Année fin"
-                value={periodForm.endYear}
-                onChange={(e) => setPeriodForm({ ...periodForm, endYear: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <input
-                type="color"
-                value={periodForm.color}
-                onChange={(e) => setPeriodForm({ ...periodForm, color: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <div className="flex gap-2">
-                <button onClick={addPeriod} className="flex-1 bg-purple-600 text-white py-2 rounded hover:bg-purple-700">
-                  {editMode ? 'Modifier' : 'Ajouter'}
-                </button>
-                <button
-                  onClick={() => { setShowPeriodModal(false); setEditMode(false); }}
-                  className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500"
-                >
-                  Annuler
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Artist Modal */}
-      {showArtistModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h3 className="text-xl font-bold mb-4">{editMode ? 'Modifier' : 'Ajouter'} un artiste</h3>
-
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Nom de l'artiste"
-                value={artistForm.name}
-                onChange={(e) => setArtistForm({ ...artistForm, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <input
-                type="number"
-                placeholder="Année de naissance"
-                value={artistForm.birthYear}
-                onChange={(e) => setArtistForm({ ...artistForm, birthYear: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <input
-                type="number"
-                placeholder="Année de décès"
-                value={artistForm.deathYear}
-                onChange={(e) => setArtistForm({ ...artistForm, deathYear: e.target.value })}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <div className="flex gap-2">
-                <button onClick={addArtist} className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700">
-                  {editMode ? 'Modifier' : 'Ajouter'}
-                </button>
-                <button
-                  onClick={() => { setShowArtistModal(false); setEditMode(false); }}
-                  className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500"
-                >
-                  Annuler
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    scale: 50,
+    timelineY: 300,
+    zoom: 1
+};
+
+let isDragging = false;
+let draggedItem = null;
+let resizingItem = null;
+let viewOffset = { x: 0, y: 0 };
+let dragStart = { x: 0, y: 0 };
+let editMode = false;
+
+const canvas = document.getElementById('timeline');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('canvasContainer');
+const eventsContainer = document.getElementById('eventsContainer');
+
+// Initialisation
+function init() {
+    resizeCanvas();
+    setupEventListeners();
+    loadFromLocalStorage();
+    render();
 }
 
-// Mount
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<TimelineApp />);
+function resizeCanvas() {
+    const canvasWidth = Math.max(window.innerWidth * 10, 8000);
+    const canvasHeight = Math.max(window.innerHeight * 10, 6000);
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    eventsContainer.style.width = canvasWidth + 'px';
+    eventsContainer.style.height = canvasHeight + 'px';
+}
+
+function setupEventListeners() {
+    // Menu toggle
+    document.getElementById('toggleMenu').addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        const container = document.getElementById('canvasContainer');
+        sidebar.classList.toggle('closed');
+        container.classList.toggle('closed');
+        document.getElementById('toggleMenu').textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
+    });
+
+    // Settings inputs
+    document.getElementById('startYear').addEventListener('change', (e) => {
+        settings.startYear = parseInt(e.target.value);
+        render();
+    });
+    document.getElementById('endYear').addEventListener('change', (e) => {
+        settings.endYear = parseInt(e.target.value);
+        render();
+    });
+    document.getElementById('scale').addEventListener('change', (e) => {
+        settings.scale = parseInt(e.target.value);
+        render();
+    });
+    document.getElementById('timelineY').addEventListener('input', (e) => {
+        settings.timelineY = parseInt(e.target.value);
+        render();
+    });
+    document.getElementById('zoomLevel').addEventListener('input', (e) => {
+        settings.zoom = parseFloat(e.target.value);
+        render();
+    });
+
+    // Canvas dragging
+    container.addEventListener('mousedown', handleCanvasMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    // Image preview
+    document.getElementById('eventImage').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const preview = document.getElementById('eventPreview');
+                preview.src = event.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+function handleCanvasMouseDown(e) {
+    if (e.target === canvas || e.target === container) {
+        isDragging = true;
+        container.classList.add('grabbing');
+        dragStart = {
+            x: e.clientX - viewOffset.x,
+            y: e.clientY - viewOffset.y
+        };
+    }
+}
+
+function handleMouseMove(e) {
+    if (isDragging) {
+        viewOffset = {
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y
+        };
+        updateViewOffset();
+    } else if (draggedItem) {
+        handleItemDrag(e);
+    } else if (resizingItem) {
+        handleItemResize(e);
+    }
+}
+
+function handleMouseUp() {
+    isDragging = false;
+    draggedItem = null;
+    resizingItem = null;
+    container.classList.remove('grabbing');
+}
+
+function updateViewOffset() {
+    canvas.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
+    eventsContainer.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
+}
+
+// Conversion année -> position X
+function yearToX(year) {
+    const totalYears = settings.endYear - settings.startYear;
+    const canvasWidth = canvas.width;
+    return ((year - settings.startYear) / totalYears) * canvasWidth;
+}
+
+// Conversion position X -> année
+function xToYear(x) {
+    const totalYears = settings.endYear - settings.startYear;
+    const canvasWidth = canvas.width;
+    return Math.round((x / canvasWidth) * totalYears + settings.startYear);
+}
+
+// Render la frise
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Dessiner la ligne de temps principale
+    drawTimeline();
+    
+    // Dessiner les périodes
+    drawPeriods();
+    
+    // Dessiner les artistes
+    drawArtists();
+    
+    // Dessiner les événements
+    drawEvents();
+    
+    updateViewOffset();
+}
+
+function drawTimeline() {
+    const y = settings.timelineY;
+    
+    // Barre principale épaisse
+    ctx.fillStyle = '#1a202c';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.fillRect(0, y - 20, canvas.width, 40);
+    ctx.strokeRect(0, y - 20, canvas.width, 40);
+    
+    // Graduations
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
+        const x = yearToX(year);
+        
+        // Ligne de graduation
+        ctx.beginPath();
+        ctx.moveTo(x, y - 20);
+        ctx.lineTo(x, y + 20);
+        ctx.stroke();
+        
+        // Année
+        ctx.fillText(year.toString(), x, y);
+    }
+}
+
+function drawPeriods() {
+    // Les périodes sont maintenant des éléments DOM
+    const existingPeriods = document.querySelectorAll('.period-bar');
+    existingPeriods.forEach(el => el.remove());
+    
+    periods.forEach(period => {
+        const startX = yearToX(parseInt(period.startYear));
+        const endX = yearToX(parseInt(period.endYear));
+        const width = endX - startX;
+        
+        const div = document.createElement('div');
+        div.className = 'period-bar' + (selectedItem?.id === period.id ? ' selected' : '');
+        div.style.left = startX + 'px';
+        div.style.top = period.y + 'px';
+        div.style.width = width + 'px';
+        div.style.height = period.height + 'px';
+        div.style.background = period.color;
+        
+        div.innerHTML = `
+            <div class="period-name">${period.name}</div>
+            <div class="period-dates">${period.startYear} - ${period.endYear}</div>
+        `;
+        
+        div.addEventListener('mousedown', (e) => startDragPeriod(e, period));
+        div.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectItem(period, 'period');
+        });
+        
+        eventsContainer.appendChild(div);
+    });
+}
+
+function drawArtists() {
+    const existingArtists = document.querySelectorAll('.artist-line');
+    existingArtists.forEach(el => el.remove());
+    
+    artists.forEach(artist => {
+        const birthX = yearToX(parseInt(artist.birthYear));
+        const deathX = yearToX(parseInt(artist.deathYear));
+        const width = deathX - birthX;
+        
+        const div = document.createElement('div');
+        div.className = 'artist-line' + (selectedItem?.id === artist.id ? ' selected' : '');
+        div.style.left = birthX + 'px';
+        div.style.top = artist.y + 'px';
+        div.style.width = width + 'px';
+        
+        div.innerHTML = `
+            <div class="artist-marker" style="left: 0;"></div>
+            <div class="artist-marker" style="left: ${width - 10}px;"></div>
+            <div class="artist-name">${artist.name}</div>
+            <div class="artist-dates">${artist.birthYear} à ${artist.deathYear}</div>
+        `;
+        
+        div.addEventListener('mousedown', (e) => startDragArtist(e, artist));
+        div.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectItem(artist, 'artist');
+        });
+        
+        eventsContainer.appendChild(div);
+    });
+}
+
+function drawEvents() {
+    const existingEvents = document.querySelectorAll('.event-card');
+    existingEvents.forEach(el => el.remove());
+    
+    events.forEach(event => {
+        const x = yearToX(parseInt(event.year));
+        const eventAboveTimeline = event.y < settings.timelineY;
+        
+        const card = document.createElement('div');
+        card.className = 'event-card' + (selectedItem?.id === event.id ? ' selected' : '');
+        card.style.left = (x - event.width / 2) + 'px';
+        card.style.top = event.y + 'px';
+        card.style.width = event.width + 'px';
+        card.style.height = event.height + 'px';
+        
+        card.innerHTML = `
+            <img src="${event.image}" alt="${event.name}">
+            <div class="event-title">${event.name}</div>
+            <div class="event-year">${event.year}</div>
+            <div class="resize-corner"></div>
+        `;
+        
+        // Ligne de connexion
+        const lineDiv = document.createElement('div');
+        lineDiv.className = 'connection-line';
+        if (eventAboveTimeline) {
+            lineDiv.style.left = x + 'px';
+            lineDiv.style.top = (event.y + event.height) + 'px';
+            lineDiv.style.height = (settings.timelineY - event.y - event.height - 20) + 'px';
+        } else {
+            lineDiv.style.left = x + 'px';
+            lineDiv.style.top = (settings.timelineY + 20) + 'px';
+            lineDiv.style.height = (event.y - settings.timelineY - 20) + 'px';
+        }
+        eventsContainer.appendChild(lineDiv);
+        
+        card.addEventListener('mousedown', (e) => startDragEvent(e, event));
+        card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectItem(event, 'event');
+        });
+        
+        const resizeHandle = card.querySelector('.resize-corner');
+        resizeHandle.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            startResizeEvent(e, event);
+        });
+        
+        eventsContainer.appendChild(card);
+    });
+}
+
+// Drag & Drop handlers
+function startDragEvent(e, event) {
+    e.stopPropagation();
+    draggedItem = {
+        item: event,
+        type: 'event',
+        startY: e.clientY - event.y
+    };
+}
+
+function startDragPeriod(e, period) {
+    e.stopPropagation();
+    draggedItem = {
+        item: period,
+        type: 'period',
+        startY: e.clientY - period.y
+    };
+}
+
+function startDragArtist(e, artist) {
+    e.stopPropagation();
+    draggedItem = {
+        item: artist,
+        type: 'artist',
+        startY: e.clientY - artist.y
+    };
+}
+
+function startResizeEvent(e, event) {
+    e.stopPropagation();
+    resizingItem = {
+        item: event,
+        startX: e.clientX,
+        startY: e.clientY,
+        startWidth: event.width,
+        startHeight: event.height
+    };
+}
+
+function handleItemDrag(e) {
+    if (!draggedItem) return;
+    
+    const newY = e.clientY - draggedItem.startY;
+    
+    if (draggedItem.type === 'event') {
+        const event = events.find(ev => ev.id === draggedItem.item.id);
+        if (event) {
+            event.y = Math.max(0, newY);
+            render();
+        }
+    } else if (draggedItem.type === 'period') {
+        const period = periods.find(p => p.id === draggedItem.item.id);
+        if (period) {
+            period.y = Math.max(0, newY);
+            render();
+        }
+    } else if (draggedItem.type === 'artist') {
+        const artist = artists.find(a => a.id === draggedItem.item.id);
+        if (artist) {
+            artist.y = Math.max(0, newY);
+            render();
+        }
+    }
+}
+
+function handleItemResize(e) {
+    if (!resizingItem) return;
+    
+    const deltaX = e.clientX - resizingItem.startX;
+    const deltaY = e.clientY - resizingItem.startY;
+    const delta = Math.max(deltaX, deltaY);
+    
+    const event = events.find(ev => ev.id === resizingItem.item.id);
+    if (event) {
+        event.width = Math.max(80, resizingItem.startWidth + delta);
+        event.height = Math.max(80, resizingItem.startHeight + delta);
+        render();
+    }
+}
+
+// Sélection d'item
+function selectItem(item, type) {
+    selectedItem = { ...item, type };
+    document.getElementById('selectedItemActions').style.display = 'block';
+    render();
+}
+
+// Modals
+function showEventModal() {
+    document.getElementById('eventModal').classList.add('show');
+    editMode = false;
+    document.getElementById('eventModalTitle').textContent = 'Ajouter un événement';
+    document.getElementById('eventName').value = '';
+    document.getElementById('eventYear').value = '';
+    document.getElementById('eventImage').value = '';
+    document.getElementById('eventPreview').style.display = 'none';
+}
+
+function showPeriodModal() {
+    document.getElementById('periodModal').classList.add('show');
+    editMode = false;
+    document.getElementById('periodModalTitle').textContent = 'Ajouter une période';
+    document.getElementById('periodName').value = '';
+    document.getElementById('periodStart').value = '';
+    document.getElementById('periodEnd').value = '';
+    document.getElementById('periodColor').value = '#4299e1';
+}
+
+function showArtistModal() {
+    document.getElementById('artistModal').classList.add('show');
+    editMode = false;
+    document.getElementById('artistModalTitle').textContent = 'Ajouter un artiste';
+    document.getElementById('artistName').value = '';
+    document.getElementById('artistBirth').value = '';
+    document.getElementById('artistDeath').value = '';
+}
+
+function closeModals() {
+    document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
+}
+
+function saveEvent() {
+    const name = document.getElementById('eventName').value;
+    const year = document.getElementById('eventYear').value;
+    const preview = document.getElementById('eventPreview');
+    const image = preview.src;
+    
+    if (!name || !year || !image || image === window.location.href) {
+        alert('Veuillez remplir tous les champs');
+        return;
+    }
+    
+    if (editMode && selectedItem) {
+        const event = events.find(e => e.id === selectedItem.id);
+        if (event) {
+            event.name = name;
+            event.year = year;
+            event.image = image;
+        }
+    } else {
+        events.push({
+            id: Date.now(),
+            name,
+            year,
+            image,
+            y: 100,
+            width: 120,
+            height: 120
+        });
+    }
+    
+    closeModals();
+    render();
+}
+
+function savePeriod() {
+    const name = document.getElementById('periodName').value;
+    const startYear = document.getElementById('periodStart').value;
+    const endYear = document.getElementById('periodEnd').value;
+    const color = document.getElementById('periodColor').value;
+    
+    if (!name || !startYear || !endYear) {
+        alert('Veuillez remplir tous les champs');
+        return;
+    }
+    
+    if (editMode && selectedItem) {
+        const period = periods.find(p => p.id === selectedItem.id);
+        if (period) {
+            period.name = name;
+            period.startYear = startYear;
+            period.endYear = endYear;
+            period.color = color;
+        }
+    } else {
+        periods.push({
+            id: Date.now(),
+            name,
+            startYear,
+            endYear,
+            color,
+            y: 50,
+            height: 40
+        });
+    }
+    
+    closeModals();
+    render();
+}
+
+function saveArtist() {
+    const name = document.getElementById('artistName').value;
+    const birthYear = document.getElementById('artistBirth').value;
+    const deathYear = document.getElementById('artistDeath').value;
+    
+    if (!name || !birthYear || !deathYear) {
+        alert('Veuillez remplir tous les champs');
+        return;
+    }
+    
+    if (editMode && selectedItem) {
+        const artist = artists.find(a => a.id === selectedItem.id);
+        if (artist) {
+            artist.name = name;
+            artist.birthYear = birthYear;
+            artist.deathYear = deathYear;
+        }
+    } else {
+        artists.push({
+            id: Date.now(),
+            name,
+            birthYear,
+            deathYear,
+            y: settings.timelineY - 100
+        });
+    }
+    
+    closeModals();
+    render();
+}
+
+function editSelectedItem() {
+    if (!selectedItem) return;
+    
+    editMode = true;
+    
+    if (selectedItem.type === 'event') {
+        document.getElementById('eventModalTitle').textContent = 'Modifier l\'événement';
+        document.getElementById('eventName').value = selectedItem.name;
+        document.getElementById('eventYear').value = selectedItem.year;
+        document.getElementById('eventPreview').src = selectedItem.image;
+        document.getElementById('eventPreview').style.display = 'block';
+        document.getElementById('eventModal').classList.add('show');
+    } else if (selectedItem.type === 'period') {
+        document.getElementById('periodModalTitle').textContent = 'Modifier la période';
+        document.getElementById('periodName').value = selectedItem.name;
+        document.getElementById('periodStart').value = selectedItem.startYear;
+        document.getElementById('periodEnd').value = selectedItem.endYear;
+        document.getElementById('periodColor').value = selectedItem.color;
+        document.getElementById('periodModal').classList.add('show');
+    } else if (selectedItem.type === 'artist') {
+        document.getElementById('artistModalTitle').textContent = 'Modifier l\'artiste';
+        document.getElementById('artistName').value = selectedItem.name;
+        document.getElementById('artistBirth').value = selectedItem.birthYear;
+        document.getElementById('artistDeath').value = selectedItem.deathYear;
+        document.getElementById('artistModal').classList.add('show');
+    }
+}
+
+function deleteSelectedItem() {
+    if (!selectedItem) return;
+    
+    if (selectedItem.type === 'event') {
+        events = events.filter(e => e.id !== selectedItem.id);
+    } else if (selectedItem.type === 'period') {
+        periods = periods.filter(p => p.id !== selectedItem.id);
+    } else if (selectedItem.type === 'artist') {
+        artists = artists.filter(a => a.id !== selectedItem.id);
+    }
+    
+    selectedItem = null;
+    document.getElementById('selectedItemActions').style.display = 'none';
+    render();
+}
+
+function centerOnYearZero() {
+    const zeroX = yearToX(0);
+    viewOffset.x = (window.innerWidth / 2) - zeroX;
+    viewOffset.y = 0;
+    updateViewOffset();
+}
+
+// Sauvegarde / Chargement
+function saveToLocalStorage() {
+    const data = {
+        events,
+        periods,
+        artists,
+        settings
+    };
+    localStorage.setItem('timelineData', JSON.stringify(data));
+    alert('Sauvegarde réussie ! 💾');
+}
+
+function loadFromLocalStorage() {
+    const data = localStorage.getItem('timelineData');
+    if (data) {
+        const parsed = JSON.parse(data);
+        events = parsed.events || [];
+        periods = parsed.periods || [];
+        artists = parsed.artists || [];
+        if (parsed.settings) {
+            settings = parsed.settings;
+            document.getElementById('startYear').value = settings.startYear;
+            document.getElementById('endYear').value = settings.endYear;
+            document.getElementById('scale').value = settings.scale;
+            document.getElementById('timelineY').value = settings.timelineY;
+            document.getElementById('zoomLevel').value = settings.zoom;
+        }
+        render();
+    }
+}
+
+// Démarrage
+window.addEventListener('load', init);
+window.addEventListener('resize', () => {
+    resizeCanvas();
+    render();
+});
