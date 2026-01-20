@@ -54,19 +54,21 @@
                 <input type="range" id="zoomLevel" min="0.5" max="3" step="0.1" value="1">
             </div>
             
-            <h3>Style du texte</h3>
-            
             <div class="form-group">
-                <label>Taille du texte global</label>
-                <input type="range" id="textSize" min="8" max="20" value="12">
-                <span id="textSizeValue">12px</span>
+                <label>Couleur du fond</label>
+                <input type="color" id="bgColor" value="#ffffff">
             </div>
             
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="textBold"> Texte en gras (global)
+                    <input type="checkbox" id="showGrid" checked> Afficher le quadrillage
                 </label>
             </div>
+            
+            <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
+            <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
+            <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
+            <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
             
             <div id="textStyleTools" style="display: none; margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px;">
                 <h3 style="margin-bottom: 10px;">Texte sélectionné</h3>
@@ -81,11 +83,6 @@
                     </label>
                 </div>
             </div>
-            
-            <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
-            <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
-            <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
-            <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
             
             <div id="selectedItemActions" style="display: none;">
                 <h3>Élément sélectionné</h3>
