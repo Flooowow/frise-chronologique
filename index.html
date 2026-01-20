@@ -30,6 +30,21 @@
             </div>
             
             <div class="form-group">
+                <label>Pages horizontales</label>
+                <input type="number" id="pagesH" min="1" max="10" value="3">
+            </div>
+            
+            <div class="form-group">
+                <label>Pages verticales</label>
+                <input type="number" id="pagesV" min="1" max="10" value="2">
+            </div>
+            
+            <div class="form-group">
+                <label>Épaisseur de la frise</label>
+                <input type="range" id="timelineThickness" min="20" max="80" value="40">
+            </div>
+            
+            <div class="form-group">
                 <label>Position frise (Y)</label>
                 <input type="range" id="timelineY" min="50" max="600" value="300">
             </div>
@@ -37,6 +52,20 @@
             <div class="form-group">
                 <label>Zoom</label>
                 <input type="range" id="zoomLevel" min="0.5" max="3" step="0.1" value="1">
+            </div>
+            
+            <h3>Style du texte</h3>
+            
+            <div class="form-group">
+                <label>Taille du texte</label>
+                <input type="range" id="textSize" min="8" max="20" value="12">
+                <span id="textSizeValue">12px</span>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="textBold"> Texte en gras
+                </label>
             </div>
             
             <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
@@ -84,6 +113,11 @@
             <input type="number" id="periodStart" placeholder="Année début">
             <input type="number" id="periodEnd" placeholder="Année fin">
             <input type="color" id="periodColor" value="#4299e1">
+            <div class="form-group">
+                <label>Épaisseur de la barre</label>
+                <input type="range" id="periodHeight" min="20" max="100" value="40">
+                <span id="periodHeightValue">40px</span>
+            </div>
             <div class="modal-buttons">
                 <button class="btn btn-purple" onclick="savePeriod()">Ajouter</button>
                 <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
