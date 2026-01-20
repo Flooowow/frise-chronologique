@@ -13,8 +13,8 @@ let settings = {
     zoom: 1,
     pagesH: 3,
     pagesV: 2,
-    textSize: 12,
-    textBold: false
+    bgColor: '#ffffff',
+    showGrid: true
 };
 
 let isDragging = false;
@@ -91,13 +91,12 @@ function setupEventListeners() {
         resizeCanvas();
         render();
     });
-    document.getElementById('textSize').addEventListener('input', (e) => {
-        settings.textSize = parseInt(e.target.value);
-        document.getElementById('textSizeValue').textContent = e.target.value + 'px';
+    document.getElementById('bgColor').addEventListener('input', (e) => {
+        settings.bgColor = e.target.value;
         render();
     });
-    document.getElementById('textBold').addEventListener('change', (e) => {
-        settings.textBold = e.target.checked;
+    document.getElementById('showGrid').addEventListener('change', (e) => {
+        settings.showGrid = e.target.checked;
         render();
     });
     document.getElementById('periodHeight')?.addEventListener('input', (e) => {
@@ -217,6 +216,15 @@ function xToYear(x) {
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Dessiner le fond
+    ctx.fillStyle = settings.bgColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Dessiner le quadrillage
+    if (settings.showGrid) {
+        drawGrid();
+    }
+    
     // Dessiner la ligne de temps principale
     drawTimeline();
     
@@ -232,22 +240,45 @@ function render() {
     updateViewOffset();
 }
 
+function drawGrid() {
+    const gridSize = 37.8; // Approximativement 1cm à 96dpi
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    
+    // Lignes verticales
+    for (let x = 0; x <= canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+    
+    // Lignes horizontales
+    for (let y = 0; y <= canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+}
+
 function drawTimeline() {
     const y = settings.timelineY;
     const thickness = settings.timelineThickness;
     const halfThickness = thickness / 2;
     
-    // Barre principale épaisse
-    ctx.fillStyle = '#1a202c';
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
+    // Barre principale avec fond blanc et contour noir
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, y - halfThickness, canvas.width, thickness);
+    
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
     ctx.strokeRect(0, y - halfThickness, canvas.width, thickness);
     
     // Graduations
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
-    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = '#000';
     const fontSize = Math.max(12, Math.min(20, thickness * 0.4));
     ctx.font = `bold ${fontSize}px Arial`;
     ctx.textAlign = 'center';
@@ -262,7 +293,7 @@ function drawTimeline() {
         ctx.lineTo(x, y + halfThickness);
         ctx.stroke();
         
-        // Année
+        // Année en noir
         ctx.fillText(year.toString(), x, y);
     }
 }
@@ -286,8 +317,8 @@ function drawPeriods() {
         div.style.background = period.color;
         
         div.innerHTML = `
-            <div class="period-name" style="font-size: ${settings.textSize}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${period.name}</div>
-            <div class="period-dates" style="font-size: ${Math.max(10, settings.textSize - 2)}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${period.startYear} - ${period.endYear}</div>
+            <div class="period-name">${period.name}</div>
+            <div class="period-dates">${period.startYear} - ${period.endYear}</div>
         `;
         
         div.addEventListener('mousedown', (e) => startDragPeriod(e, period));
@@ -318,8 +349,8 @@ function drawArtists() {
         div.innerHTML = `
             <div class="artist-marker" style="left: 0;"></div>
             <div class="artist-marker" style="left: ${width - 10}px;"></div>
-            <div class="artist-name" style="font-size: ${settings.textSize}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${artist.name}</div>
-            <div class="artist-dates" style="font-size: ${Math.max(10, settings.textSize - 2)}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${artist.birthYear} à ${artist.deathYear}</div>
+            <div class="artist-name">${artist.name}</div>
+            <div class="artist-dates">${artist.birthYear} à ${artist.deathYear}</div>
         `;
         
         div.addEventListener('mousedown', (e) => startDragArtist(e, artist));
@@ -347,11 +378,11 @@ function drawEvents() {
         card.style.width = event.width + 'px';
         card.style.height = event.height + 'px';
         
-        // Styles de texte individuels ou globaux
-        const titleSize = event.customTitleSize || settings.textSize;
-        const titleBold = event.customTitleBold !== undefined ? event.customTitleBold : settings.textBold;
-        const yearSize = event.customYearSize || Math.max(10, settings.textSize - 2);
-        const yearBold = event.customYearBold !== undefined ? event.customYearBold : settings.textBold;
+        // Styles de texte individuels ou par défaut
+        const titleSize = event.customTitleSize || 12;
+        const titleBold = event.customTitleBold !== undefined ? event.customTitleBold : false;
+        const yearSize = event.customYearSize || 10;
+        const yearBold = event.customYearBold !== undefined ? event.customYearBold : false;
         
         card.innerHTML = `
             <img src="${event.image}" alt="${event.name}">
@@ -428,14 +459,14 @@ function selectTextElement(event, textType, element) {
     
     // Mettre à jour les valeurs
     if (textType === 'title') {
-        const size = event.customTitleSize || settings.textSize;
-        const bold = event.customTitleBold !== undefined ? event.customTitleBold : settings.textBold;
+        const size = event.customTitleSize || 12;
+        const bold = event.customTitleBold !== undefined ? event.customTitleBold : false;
         document.getElementById('selectedTextSize').value = size;
         document.getElementById('selectedTextSizeValue').textContent = size + 'px';
         document.getElementById('selectedTextBold').checked = bold;
     } else {
-        const size = event.customYearSize || Math.max(10, settings.textSize - 2);
-        const bold = event.customYearBold !== undefined ? event.customYearBold : settings.textBold;
+        const size = event.customYearSize || 10;
+        const bold = event.customYearBold !== undefined ? event.customYearBold : false;
         document.getElementById('selectedTextSize').value = size;
         document.getElementById('selectedTextSizeValue').textContent = size + 'px';
         document.getElementById('selectedTextBold').checked = bold;
@@ -749,9 +780,8 @@ function loadFromLocalStorage() {
             document.getElementById('zoomLevel').value = settings.zoom;
             document.getElementById('pagesH').value = settings.pagesH || 3;
             document.getElementById('pagesV').value = settings.pagesV || 2;
-            document.getElementById('textSize').value = settings.textSize || 12;
-            document.getElementById('textSizeValue').textContent = (settings.textSize || 12) + 'px';
-            document.getElementById('textBold').checked = settings.textBold || false;
+            document.getElementById('bgColor').value = settings.bgColor || '#ffffff';
+            document.getElementById('showGrid').checked = settings.showGrid !== undefined ? settings.showGrid : true;
         }
         resizeCanvas();
         render();
