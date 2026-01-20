@@ -3,6 +3,7 @@ let events = [];
 let periods = [];
 let artists = [];
 let selectedItem = null;
+let selectedTextElement = null;
 let settings = {
     startYear: -500,
     endYear: 2000,
@@ -102,6 +103,37 @@ function setupEventListeners() {
     document.getElementById('periodHeight')?.addEventListener('input', (e) => {
         document.getElementById('periodHeightValue').textContent = e.target.value + 'px';
     });
+    
+    // Text selection tools
+    document.getElementById('selectedTextSize')?.addEventListener('input', (e) => {
+        document.getElementById('selectedTextSizeValue').textContent = e.target.value + 'px';
+        if (selectedTextElement) {
+            const event = selectedTextElement.event;
+            const newSize = parseInt(e.target.value);
+            
+            if (selectedTextElement.textType === 'title') {
+                event.customTitleSize = newSize;
+            } else {
+                event.customYearSize = newSize;
+            }
+            
+            selectedTextElement.element.style.fontSize = newSize + 'px';
+        }
+    });
+    document.getElementById('selectedTextBold')?.addEventListener('change', (e) => {
+        if (selectedTextElement) {
+            const event = selectedTextElement.event;
+            const isBold = e.target.checked;
+            
+            if (selectedTextElement.textType === 'title') {
+                event.customTitleBold = isBold;
+            } else {
+                event.customYearBold = isBold;
+            }
+            
+            selectedTextElement.element.style.fontWeight = isBold ? 'bold' : 'normal';
+        }
+    });
 
     // Canvas dragging
     container.addEventListener('mousedown', handleCanvasMouseDown);
@@ -131,6 +163,13 @@ function handleCanvasMouseDown(e) {
             x: e.clientX - viewOffset.x,
             y: e.clientY - viewOffset.y
         };
+        
+        // Désélectionner le texte si on clique sur le canvas
+        if (selectedTextElement) {
+            selectedTextElement.element.classList.remove('selected-text');
+            selectedTextElement = null;
+            document.getElementById('textStyleTools').style.display = 'none';
+        }
     }
 }
 
@@ -308,10 +347,16 @@ function drawEvents() {
         card.style.width = event.width + 'px';
         card.style.height = event.height + 'px';
         
+        // Styles de texte individuels ou globaux
+        const titleSize = event.customTitleSize || settings.textSize;
+        const titleBold = event.customTitleBold !== undefined ? event.customTitleBold : settings.textBold;
+        const yearSize = event.customYearSize || Math.max(10, settings.textSize - 2);
+        const yearBold = event.customYearBold !== undefined ? event.customYearBold : settings.textBold;
+        
         card.innerHTML = `
             <img src="${event.image}" alt="${event.name}">
-            <div class="event-title" style="font-size: ${settings.textSize}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${event.name}</div>
-            <div class="event-year" style="font-size: ${Math.max(10, settings.textSize - 2)}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${event.year}</div>
+            <div class="event-title" data-event-id="${event.id}" data-text-type="title" style="font-size: ${titleSize}px; font-weight: ${titleBold ? 'bold' : 'normal'};">${event.name}</div>
+            <div class="event-year" data-event-id="${event.id}" data-text-type="year" style="font-size: ${yearSize}px; font-weight: ${yearBold ? 'bold' : 'normal'};">${event.year}</div>
             <div class="resize-corner"></div>
         `;
         
@@ -329,10 +374,28 @@ function drawEvents() {
         }
         eventsContainer.appendChild(lineDiv);
         
-        card.addEventListener('mousedown', (e) => startDragEvent(e, event));
+        card.addEventListener('mousedown', (e) => {
+            if (!e.target.classList.contains('event-title') && !e.target.classList.contains('event-year')) {
+                startDragEvent(e, event);
+            }
+        });
         card.addEventListener('click', (e) => {
             e.stopPropagation();
             selectItem(event, 'event');
+        });
+        
+        // Text selection
+        const titleEl = card.querySelector('.event-title');
+        const yearEl = card.querySelector('.event-year');
+        
+        titleEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectTextElement(event, 'title', titleEl);
+        });
+        
+        yearEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectTextElement(event, 'year', yearEl);
         });
         
         const resizeHandle = card.querySelector('.resize-corner');
@@ -343,6 +406,40 @@ function drawEvents() {
         
         eventsContainer.appendChild(card);
     });
+}
+
+function selectTextElement(event, textType, element) {
+    // Désélectionner l'ancien
+    if (selectedTextElement) {
+        selectedTextElement.element.classList.remove('selected-text');
+    }
+    
+    // Sélectionner le nouveau
+    selectedTextElement = {
+        event: event,
+        textType: textType,
+        element: element
+    };
+    
+    element.classList.add('selected-text');
+    
+    // Afficher les outils
+    document.getElementById('textStyleTools').style.display = 'block';
+    
+    // Mettre à jour les valeurs
+    if (textType === 'title') {
+        const size = event.customTitleSize || settings.textSize;
+        const bold = event.customTitleBold !== undefined ? event.customTitleBold : settings.textBold;
+        document.getElementById('selectedTextSize').value = size;
+        document.getElementById('selectedTextSizeValue').textContent = size + 'px';
+        document.getElementById('selectedTextBold').checked = bold;
+    } else {
+        const size = event.customYearSize || Math.max(10, settings.textSize - 2);
+        const bold = event.customYearBold !== undefined ? event.customYearBold : settings.textBold;
+        document.getElementById('selectedTextSize').value = size;
+        document.getElementById('selectedTextSizeValue').textContent = size + 'px';
+        document.getElementById('selectedTextBold').checked = bold;
+    }
 }
 
 // Drag & Drop handlers
