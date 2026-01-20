@@ -57,15 +57,29 @@
             <h3>Style du texte</h3>
             
             <div class="form-group">
-                <label>Taille du texte</label>
+                <label>Taille du texte global</label>
                 <input type="range" id="textSize" min="8" max="20" value="12">
                 <span id="textSizeValue">12px</span>
             </div>
             
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="textBold"> Texte en gras
+                    <input type="checkbox" id="textBold"> Texte en gras (global)
                 </label>
+            </div>
+            
+            <div id="textStyleTools" style="display: none; margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px;">
+                <h3 style="margin-bottom: 10px;">Texte sélectionné</h3>
+                <div class="form-group">
+                    <label>Taille</label>
+                    <input type="range" id="selectedTextSize" min="8" max="24" value="12">
+                    <span id="selectedTextSizeValue">12px</span>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="selectedTextBold"> Gras
+                    </label>
+                </div>
             </div>
             
             <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
