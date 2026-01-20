@@ -8,7 +8,12 @@ let settings = {
     endYear: 2000,
     scale: 50,
     timelineY: 300,
-    zoom: 1
+    timelineThickness: 40,
+    zoom: 1,
+    pagesH: 3,
+    pagesV: 2,
+    textSize: 12,
+    textBold: false
 };
 
 let isDragging = false;
@@ -32,8 +37,8 @@ function init() {
 }
 
 function resizeCanvas() {
-    const canvasWidth = Math.max(window.innerWidth * 10, 8000);
-    const canvasHeight = Math.max(window.innerHeight * 10, 6000);
+    const canvasWidth = settings.pagesH * 1400;
+    const canvasHeight = settings.pagesV * 800;
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
     eventsContainer.style.width = canvasWidth + 'px';
@@ -70,6 +75,32 @@ function setupEventListeners() {
     document.getElementById('zoomLevel').addEventListener('input', (e) => {
         settings.zoom = parseFloat(e.target.value);
         render();
+    });
+    document.getElementById('timelineThickness').addEventListener('input', (e) => {
+        settings.timelineThickness = parseInt(e.target.value);
+        render();
+    });
+    document.getElementById('pagesH').addEventListener('change', (e) => {
+        settings.pagesH = parseInt(e.target.value);
+        resizeCanvas();
+        render();
+    });
+    document.getElementById('pagesV').addEventListener('change', (e) => {
+        settings.pagesV = parseInt(e.target.value);
+        resizeCanvas();
+        render();
+    });
+    document.getElementById('textSize').addEventListener('input', (e) => {
+        settings.textSize = parseInt(e.target.value);
+        document.getElementById('textSizeValue').textContent = e.target.value + 'px';
+        render();
+    });
+    document.getElementById('textBold').addEventListener('change', (e) => {
+        settings.textBold = e.target.checked;
+        render();
+    });
+    document.getElementById('periodHeight')?.addEventListener('input', (e) => {
+        document.getElementById('periodHeightValue').textContent = e.target.value + 'px';
     });
 
     // Canvas dragging
@@ -164,19 +195,22 @@ function render() {
 
 function drawTimeline() {
     const y = settings.timelineY;
+    const thickness = settings.timelineThickness;
+    const halfThickness = thickness / 2;
     
     // Barre principale épaisse
     ctx.fillStyle = '#1a202c';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
-    ctx.fillRect(0, y - 20, canvas.width, 40);
-    ctx.strokeRect(0, y - 20, canvas.width, 40);
+    ctx.fillRect(0, y - halfThickness, canvas.width, thickness);
+    ctx.strokeRect(0, y - halfThickness, canvas.width, thickness);
     
     // Graduations
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 3;
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 16px Arial';
+    const fontSize = Math.max(12, Math.min(20, thickness * 0.4));
+    ctx.font = `bold ${fontSize}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
@@ -185,8 +219,8 @@ function drawTimeline() {
         
         // Ligne de graduation
         ctx.beginPath();
-        ctx.moveTo(x, y - 20);
-        ctx.lineTo(x, y + 20);
+        ctx.moveTo(x, y - halfThickness);
+        ctx.lineTo(x, y + halfThickness);
         ctx.stroke();
         
         // Année
@@ -213,8 +247,8 @@ function drawPeriods() {
         div.style.background = period.color;
         
         div.innerHTML = `
-            <div class="period-name">${period.name}</div>
-            <div class="period-dates">${period.startYear} - ${period.endYear}</div>
+            <div class="period-name" style="font-size: ${settings.textSize}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${period.name}</div>
+            <div class="period-dates" style="font-size: ${Math.max(10, settings.textSize - 2)}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${period.startYear} - ${period.endYear}</div>
         `;
         
         div.addEventListener('mousedown', (e) => startDragPeriod(e, period));
@@ -245,8 +279,8 @@ function drawArtists() {
         div.innerHTML = `
             <div class="artist-marker" style="left: 0;"></div>
             <div class="artist-marker" style="left: ${width - 10}px;"></div>
-            <div class="artist-name">${artist.name}</div>
-            <div class="artist-dates">${artist.birthYear} à ${artist.deathYear}</div>
+            <div class="artist-name" style="font-size: ${settings.textSize}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${artist.name}</div>
+            <div class="artist-dates" style="font-size: ${Math.max(10, settings.textSize - 2)}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${artist.birthYear} à ${artist.deathYear}</div>
         `;
         
         div.addEventListener('mousedown', (e) => startDragArtist(e, artist));
@@ -276,8 +310,8 @@ function drawEvents() {
         
         card.innerHTML = `
             <img src="${event.image}" alt="${event.name}">
-            <div class="event-title">${event.name}</div>
-            <div class="event-year">${event.year}</div>
+            <div class="event-title" style="font-size: ${settings.textSize}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${event.name}</div>
+            <div class="event-year" style="font-size: ${Math.max(10, settings.textSize - 2)}px; font-weight: ${settings.textBold ? 'bold' : 'normal'};">${event.year}</div>
             <div class="resize-corner"></div>
         `;
         
@@ -287,11 +321,11 @@ function drawEvents() {
         if (eventAboveTimeline) {
             lineDiv.style.left = x + 'px';
             lineDiv.style.top = (event.y + event.height) + 'px';
-            lineDiv.style.height = (settings.timelineY - event.y - event.height - 20) + 'px';
+            lineDiv.style.height = (settings.timelineY - event.y - event.height - settings.timelineThickness / 2) + 'px';
         } else {
             lineDiv.style.left = x + 'px';
-            lineDiv.style.top = (settings.timelineY + 20) + 'px';
-            lineDiv.style.height = (event.y - settings.timelineY - 20) + 'px';
+            lineDiv.style.top = (settings.timelineY + settings.timelineThickness / 2) + 'px';
+            lineDiv.style.height = (event.y - settings.timelineY - settings.timelineThickness / 2) + 'px';
         }
         eventsContainer.appendChild(lineDiv);
         
@@ -417,6 +451,8 @@ function showPeriodModal() {
     document.getElementById('periodStart').value = '';
     document.getElementById('periodEnd').value = '';
     document.getElementById('periodColor').value = '#4299e1';
+    document.getElementById('periodHeight').value = '40';
+    document.getElementById('periodHeightValue').textContent = '40px';
 }
 
 function showArtistModal() {
@@ -471,6 +507,7 @@ function savePeriod() {
     const startYear = document.getElementById('periodStart').value;
     const endYear = document.getElementById('periodEnd').value;
     const color = document.getElementById('periodColor').value;
+    const height = parseInt(document.getElementById('periodHeight').value);
     
     if (!name || !startYear || !endYear) {
         alert('Veuillez remplir tous les champs');
@@ -484,6 +521,7 @@ function savePeriod() {
             period.startYear = startYear;
             period.endYear = endYear;
             period.color = color;
+            period.height = height;
         }
     } else {
         periods.push({
@@ -493,7 +531,7 @@ function savePeriod() {
             endYear,
             color,
             y: 50,
-            height: 40
+            height: height
         });
     }
     
@@ -550,6 +588,8 @@ function editSelectedItem() {
         document.getElementById('periodStart').value = selectedItem.startYear;
         document.getElementById('periodEnd').value = selectedItem.endYear;
         document.getElementById('periodColor').value = selectedItem.color;
+        document.getElementById('periodHeight').value = selectedItem.height || 40;
+        document.getElementById('periodHeightValue').textContent = (selectedItem.height || 40) + 'px';
         document.getElementById('periodModal').classList.add('show');
     } else if (selectedItem.type === 'artist') {
         document.getElementById('artistModalTitle').textContent = 'Modifier l\'artiste';
@@ -608,8 +648,15 @@ function loadFromLocalStorage() {
             document.getElementById('endYear').value = settings.endYear;
             document.getElementById('scale').value = settings.scale;
             document.getElementById('timelineY').value = settings.timelineY;
+            document.getElementById('timelineThickness').value = settings.timelineThickness || 40;
             document.getElementById('zoomLevel').value = settings.zoom;
+            document.getElementById('pagesH').value = settings.pagesH || 3;
+            document.getElementById('pagesV').value = settings.pagesV || 2;
+            document.getElementById('textSize').value = settings.textSize || 12;
+            document.getElementById('textSizeValue').textContent = (settings.textSize || 12) + 'px';
+            document.getElementById('textBold').checked = settings.textBold || false;
         }
+        resizeCanvas();
         render();
     }
 }
