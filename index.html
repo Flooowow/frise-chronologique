@@ -1,26 +1,110 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Frise chrono</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frise Chronologique Interactive</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Menu latéral -->
+    <div id="sidebar" class="sidebar">
+        <button id="toggleMenu" class="toggle-btn">◀</button>
+        
+        <div class="sidebar-content">
+            <h2>Paramètres de la frise</h2>
+            
+            <div class="form-group">
+                <label>Année début</label>
+                <input type="number" id="startYear" value="-500">
+            </div>
+            
+            <div class="form-group">
+                <label>Année fin</label>
+                <input type="number" id="endYear" value="2000">
+            </div>
+            
+            <div class="form-group">
+                <label>Échelle (graduation)</label>
+                <input type="number" id="scale" value="50">
+            </div>
+            
+            <div class="form-group">
+                <label>Position frise (Y)</label>
+                <input type="range" id="timelineY" min="50" max="600" value="300">
+            </div>
+            
+            <div class="form-group">
+                <label>Zoom</label>
+                <input type="range" id="zoomLevel" min="0.5" max="3" step="0.1" value="1">
+            </div>
+            
+            <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
+            <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
+            <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
+            <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
+            
+            <div id="selectedItemActions" style="display: none;">
+                <h3>Élément sélectionné</h3>
+                <button class="btn btn-warning" onclick="editSelectedItem()">✏️ Modifier</button>
+                <button class="btn btn-danger" onclick="deleteSelectedItem()">🗑️ Supprimer</button>
+            </div>
+            
+            <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder</button>
+            <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger</button>
+        </div>
+    </div>
 
-    <!-- Tailwind via CDN (pour que vos classes Tailwind fonctionnent) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Zone de canvas -->
+    <div id="canvasContainer" class="canvas-container">
+        <canvas id="timeline"></canvas>
+        <div id="eventsContainer"></div>
+    </div>
 
-    <link rel="stylesheet" href="./style.css" />
-  </head>
-  <body>
-    <div id="root"></div>
+    <!-- Modal Événement -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <h3 id="eventModalTitle">Ajouter un événement</h3>
+            <input type="text" id="eventName" placeholder="Nom de l'œuvre">
+            <input type="number" id="eventYear" placeholder="Année">
+            <input type="file" id="eventImage" accept="image/*">
+            <img id="eventPreview" style="display:none; max-width: 100%; max-height: 150px;">
+            <div class="modal-buttons">
+                <button class="btn btn-blue" onclick="saveEvent()">Ajouter</button>
+                <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- React + ReactDOM (UMD) -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <!-- Modal Période -->
+    <div id="periodModal" class="modal">
+        <div class="modal-content">
+            <h3 id="periodModalTitle">Ajouter une période</h3>
+            <input type="text" id="periodName" placeholder="Nom de la période">
+            <input type="number" id="periodStart" placeholder="Année début">
+            <input type="number" id="periodEnd" placeholder="Année fin">
+            <input type="color" id="periodColor" value="#4299e1">
+            <div class="modal-buttons">
+                <button class="btn btn-purple" onclick="savePeriod()">Ajouter</button>
+                <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Babel pour interpréter le JSX dans script.js -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Modal Artiste -->
+    <div id="artistModal" class="modal">
+        <div class="modal-content">
+            <h3 id="artistModalTitle">Ajouter un artiste</h3>
+            <input type="text" id="artistName" placeholder="Nom de l'artiste">
+            <input type="number" id="artistBirth" placeholder="Année de naissance">
+            <input type="number" id="artistDeath" placeholder="Année de décès">
+            <div class="modal-buttons">
+                <button class="btn btn-green" onclick="saveArtist()">Ajouter</button>
+                <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Votre application -->
-    <script type="text/babel" src="./script.js"></script>
-  </body>
+    <script src="script.js"></script>
+</body>
 </html>
