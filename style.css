@@ -396,4 +396,15 @@ body {
   word-break: break-word;
   overflow: hidden;
 }
+.event-card.selected,
+.period-bar.selected,
+.artist-line.selected {
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.35), 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.selected-text {
+  background: rgba(59,130,246,0.25) !important;
+  outline: 3px solid rgba(59,130,246,0.8) !important;
+}
+
 
