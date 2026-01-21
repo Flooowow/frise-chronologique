@@ -1,27 +1,33 @@
-// Variables globales
+// -------------------- Données --------------------
 let events = [];
 let periods = [];
 let artists = [];
-let selectedItem = null;
-let selectedTextElement = null;
+
+let selectedItem = null;          // {id, type}
+let selectedTextElement = null;   // { owner, obj, key, element } OU ancien {event,textType,element}
+
 let settings = {
-    startYear: -500,
-    endYear: 2000,
-    scale: 50,
-    timelineY: 300,
-    timelineThickness: 40,
-    zoom: 1,
-    pagesH: 3,
-    pagesV: 2,
-    bgColor: '#ffffff',
-    showGrid: true
+  startYear: -500,
+  endYear: 2000,
+  scale: 50,              // graduation principale
+  minorDivisions: 10,     // petites graduations par intervalle
+  timelineY: 300,
+  timelineThickness: 40,
+  zoom: 1,
+  pagesH: 3,
+  pagesV: 2,
+  bgColor: '#ffffff',
+  showGrid: true
 };
 
-let isDragging = false;
-let draggedItem = null;
-let resizingItem = null;
-let viewOffset = { x: 0, y: 0 };
+// Pan & Drag
+let isDraggingCanvas = false;
 let dragStart = { x: 0, y: 0 };
+let viewOffset = { x: 0, y: 0 };
+
+let draggedItem = null;   // { type, item, offsetY / etc. }
+let resizingItem = null;  // { type, item, ... }
+
 let editMode = false;
 
 const canvas = document.getElementById('timeline');
@@ -29,1021 +35,1082 @@ const ctx = canvas.getContext('2d');
 const container = document.getElementById('canvasContainer');
 const eventsContainer = document.getElementById('eventsContainer');
 
-// Initialisation
+// -------------------- Utils coordonnées --------------------
+function getMouseWorldPos(e) {
+  const rect = container.getBoundingClientRect();
+  const xInContainer = (e.clientX - rect.left) + container.scrollLeft;
+  const yInContainer = (e.clientY - rect.top) + container.scrollTop;
+  const worldX = (xInContainer - viewOffset.x) / settings.zoom;
+  const worldY = (yInContainer - viewOffset.y) / settings.zoom;
+  return { x: worldX, y: worldY };
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+// -------------------- Initialisation --------------------
 function init() {
-    resizeCanvas();
-    setupEventListeners();
-    loadFromLocalStorage();
+  resizeCanvas();
+  setupEventListeners();
+  loadFromLocalStorage();
 
-    // Appliquer immédiatement fond + grille (CSS)
-    applyBackgroundToContainer();
-
-    // Forcer le premier rendu
-    setTimeout(() => {
-        render();
-        console.log('Timeline initialized');
-    }, 100);
+  applyBackgroundToContainer();
+  render();
 }
 
 function resizeCanvas() {
-    const canvasWidth = settings.pagesH * 1400;
-    const canvasHeight = settings.pagesV * 800;
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    eventsContainer.style.width = canvasWidth + 'px';
-    eventsContainer.style.height = canvasHeight + 'px';
-    console.log('Canvas resized:', canvasWidth, 'x', canvasHeight);
+  const canvasWidth = settings.pagesH * 1400;
+  const canvasHeight = settings.pagesV * 800;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  eventsContainer.style.width = canvasWidth + 'px';
+  eventsContainer.style.height = canvasHeight + 'px';
 }
 
 function setupEventListeners() {
-    // Menu toggle
-    document.getElementById('toggleMenu').addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        const container = document.getElementById('canvasContainer');
-        sidebar.classList.toggle('closed');
-        container.classList.toggle('closed');
-        document.getElementById('toggleMenu').textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
-    });
+  // Menu
+  document.getElementById('toggleMenu').addEventListener('click', () => {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('closed');
+    container.classList.toggle('closed');
+    document.getElementById('toggleMenu').textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
+  });
 
-    // Settings inputs
-    document.getElementById('startYear').addEventListener('change', (e) => {
-        settings.startYear = parseInt(e.target.value);
-        render();
-        saveToLocalStorageSilent();
-    });
-    document.getElementById('endYear').addEventListener('change', (e) => {
-        settings.endYear = parseInt(e.target.value);
-        render();
-        saveToLocalStorageSilent();
-    });
-    document.getElementById('scale').addEventListener('change', (e) => {
-        settings.scale = parseInt(e.target.value);
-        render();
-        saveToLocalStorageSilent();
-    });
-    document.getElementById('timelineY').addEventListener('input', (e) => {
-        settings.timelineY = parseInt(e.target.value);
-        render();
-        saveToLocalStorageSilent();
-    });
-    document.getElementById('zoomLevel').addEventListener('input', (e) => {
-        settings.zoom = parseFloat(e.target.value);
-        render();
-        saveToLocalStorageSilent();
-    });
-    document.getElementById('timelineThickness').addEventListener('input', (e) => {
-        settings.timelineThickness = parseInt(e.target.value);
-        render();
-        saveToLocalStorageSilent();
-    });
-    document.getElementById('pagesH').addEventListener('change', (e) => {
-        settings.pagesH = parseInt(e.target.value);
-        resizeCanvas();
-        render();
-        saveToLocalStorageSilent();
-    });
-    document.getElementById('pagesV').addEventListener('change', (e) => {
-        settings.pagesV = parseInt(e.target.value);
-        resizeCanvas();
-        render();
-        saveToLocalStorageSilent();
-    });
+  // Settings
+  document.getElementById('startYear').addEventListener('change', (e) => { settings.startYear = parseInt(e.target.value); render(); saveToLocalStorageSilent(); });
+  document.getElementById('endYear').addEventListener('change', (e) => { settings.endYear = parseInt(e.target.value); render(); saveToLocalStorageSilent(); });
+  document.getElementById('scale').addEventListener('change', (e) => { settings.scale = parseInt(e.target.value); render(); saveToLocalStorageSilent(); });
 
-    // Couleur du fond : appliquer immédiatement
-    document.getElementById('bgColor').addEventListener('input', (e) => {
-        settings.bgColor = e.target.value;
-        applyBackgroundToContainer();
-        render();
-        saveToLocalStorageSilent();
-    });
+  document.getElementById('timelineY').addEventListener('input', (e) => { settings.timelineY = parseInt(e.target.value); render(); saveToLocalStorageSilent(); });
+  document.getElementById('timelineThickness').addEventListener('input', (e) => { settings.timelineThickness = parseInt(e.target.value); render(); saveToLocalStorageSilent(); });
 
-    document.getElementById('showGrid').addEventListener('change', (e) => {
-        settings.showGrid = e.target.checked;
-        applyBackgroundToContainer();
-        render();
-        saveToLocalStorageSilent();
-    });
+  document.getElementById('zoomLevel').addEventListener('input', (e) => {
+    settings.zoom = parseFloat(e.target.value);
+    updateViewOffset();
+    saveToLocalStorageSilent();
+  });
 
-    document.getElementById('periodHeight')?.addEventListener('input', (e) => {
-        document.getElementById('periodHeightValue').textContent = e.target.value + 'px';
-    });
+  document.getElementById('pagesH').addEventListener('change', (e) => { settings.pagesH = parseInt(e.target.value); resizeCanvas(); render(); saveToLocalStorageSilent(); });
+  document.getElementById('pagesV').addEventListener('change', (e) => { settings.pagesV = parseInt(e.target.value); resizeCanvas(); render(); saveToLocalStorageSilent(); });
 
-    // Text selection tools
-    document.getElementById('selectedTextSize')?.addEventListener('input', (e) => {
-        document.getElementById('selectedTextSizeValue').textContent = e.target.value + 'px';
-        if (selectedTextElement) {
-            const event = selectedTextElement.event;
-            const newSize = parseInt(e.target.value);
+  document.getElementById('bgColor').addEventListener('input', (e) => {
+    settings.bgColor = e.target.value;
+    applyBackgroundToContainer();
+    render();
+    saveToLocalStorageSilent();
+  });
 
-            if (selectedTextElement.textType === 'title') {
-                event.customTitleSize = newSize;
-            } else {
-                event.customYearSize = newSize;
-            }
+  document.getElementById('showGrid').addEventListener('change', (e) => {
+    settings.showGrid = e.target.checked;
+    applyBackgroundToContainer();
+    render();
+    saveToLocalStorageSilent();
+  });
 
-            selectedTextElement.element.style.fontSize = newSize + 'px';
-            saveToLocalStorageSilent();
-        }
-    });
-    document.getElementById('selectedTextBold')?.addEventListener('change', (e) => {
-        if (selectedTextElement) {
-            const event = selectedTextElement.event;
-            const isBold = e.target.checked;
+  document.getElementById('periodHeight')?.addEventListener('input', (e) => {
+    document.getElementById('periodHeightValue').textContent = e.target.value + 'px';
+  });
 
-            if (selectedTextElement.textType === 'title') {
-                event.customTitleBold = isBold;
-            } else {
-                event.customYearBold = isBold;
-            }
+  // Outils texte (événements + périodes + artistes)
+  document.getElementById('selectedTextSize').addEventListener('input', (e) => {
+    const size = parseInt(e.target.value);
+    document.getElementById('selectedTextSizeValue').textContent = size + 'px';
 
-            selectedTextElement.element.style.fontWeight = isBold ? 'bold' : 'normal';
-            saveToLocalStorageSilent();
-        }
-    });
+    if (!selectedTextElement) return;
 
-    // Canvas dragging
-    container.addEventListener('mousedown', handleCanvasMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    // ancien format (event)
+    if (selectedTextElement.event) {
+      const ev = selectedTextElement.event;
+      if (selectedTextElement.textType === 'title') ev.customTitleSize = size;
+      else ev.customYearSize = size;
+      ensureEventCardFitsText(ev);
+      render(); saveToLocalStorageSilent();
+      return;
+    }
 
-    // Image preview
-    document.getElementById('eventImage').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const preview = document.getElementById('eventPreview');
-                preview.src = event.target.result;
-                preview.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-}
+    // nouveau format (period/artist)
+    const { owner, obj, key } = selectedTextElement;
+    if (!obj) return;
 
-function handleCanvasMouseDown(e) {
+    if (owner === 'period') {
+      if (key === 'name') obj.nameSize = size;
+      else if (key === 'dates') obj.datesSize = size;
+    } else if (owner === 'artist') {
+      if (key === 'name') obj.nameSize = size;
+      else if (key === 'dates') obj.datesSize = size;
+      // agrandir la box artiste si texte plus grand
+      ensureArtistBoxFitsText(obj);
+    }
+
+    render(); saveToLocalStorageSilent();
+  });
+
+  document.getElementById('selectedTextBold').addEventListener('change', (e) => {
+    const bold = e.target.checked;
+    if (!selectedTextElement) return;
+
+    if (selectedTextElement.event) {
+      const ev = selectedTextElement.event;
+      if (selectedTextElement.textType === 'title') ev.customTitleBold = bold;
+      else ev.customYearBold = bold;
+      render(); saveToLocalStorageSilent();
+      return;
+    }
+
+    const { owner, obj, key } = selectedTextElement;
+    if (!obj) return;
+
+    if (owner === 'period') {
+      if (key === 'name') obj.nameBold = bold;
+      else if (key === 'dates') obj.datesBold = bold;
+    } else if (owner === 'artist') {
+      if (key === 'name') obj.nameBold = bold;
+      else if (key === 'dates') obj.datesBold = bold;
+    }
+
+    render(); saveToLocalStorageSilent();
+  });
+
+  // Canvas pan
+  container.addEventListener('mousedown', (e) => {
+    // uniquement si on clique sur le fond/canvas (pas sur une carte)
     if (e.target === canvas || e.target === container) {
-        isDragging = true;
-        container.classList.add('grabbing');
-        dragStart = {
-            x: e.clientX - viewOffset.x,
-            y: e.clientY - viewOffset.y
-        };
+      isDraggingCanvas = true;
+      container.classList.add('grabbing');
+      dragStart = { x: e.clientX - viewOffset.x, y: e.clientY - viewOffset.y };
 
-        // Désélectionner le texte si on clique sur le canvas
-        if (selectedTextElement) {
-            selectedTextElement.element.classList.remove('selected-text');
-            selectedTextElement = null;
-            document.getElementById('textStyleTools').style.display = 'none';
-        }
+      // désélection texte
+      clearSelectedText();
     }
-}
+  });
 
-function handleMouseMove(e) {
-    if (isDragging) {
-        viewOffset = {
-            x: e.clientX - dragStart.x,
-            y: e.clientY - dragStart.y
-        };
-        updateViewOffset();
-    } else if (draggedItem) {
-        handleItemDrag(e);
-    } else if (resizingItem) {
-        handleItemResize(e);
+  window.addEventListener('mousemove', (e) => {
+    if (isDraggingCanvas) {
+      viewOffset.x = e.clientX - dragStart.x;
+      viewOffset.y = e.clientY - dragStart.y;
+      updateViewOffset();
+      return;
     }
-}
+    if (draggedItem) handleDrag(e);
+    if (resizingItem) handleResize(e);
+  });
 
-function handleMouseUp() {
-    isDragging = false;
+  window.addEventListener('mouseup', () => {
+    isDraggingCanvas = false;
+    container.classList.remove('grabbing');
     draggedItem = null;
     resizingItem = null;
-    container.classList.remove('grabbing');
-}
+  });
 
-function updateViewOffset() {
-    canvas.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
-    eventsContainer.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
-}
-
-// Conversion année -> position X
-function yearToX(year) {
-    const totalYears = settings.endYear - settings.startYear;
-    const canvasWidth = canvas.width;
-    return ((year - settings.startYear) / totalYears) * canvasWidth;
-}
-
-function getMouseWorldPos(e) {
-    // coordonnées souris -> coordonnées monde (canvas)
-    const rect = container.getBoundingClientRect();
-
-    // position dans le viewport -> position dans le container scrollé
-    const xInContainer = (e.clientX - rect.left) + container.scrollLeft;
-    const yInContainer = (e.clientY - rect.top) + container.scrollTop;
-
-    // retirer le pan (viewOffset) et le zoom
-    const worldX = (xInContainer - viewOffset.x) / settings.zoom;
-    const worldY = (yInContainer - viewOffset.y) / settings.zoom;
-
-    return { x: worldX, y: worldY };
-}
-
-// Render la frise
-function render() {
-    // Effacer tout
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Fond + grille : via CSS sur le container
-    applyBackgroundToContainer();
-
-    // IMPORTANT : ne pas remplir le canvas, sinon on ne voit pas la grille CSS
-    // (on garde le canvas transparent et on ne dessine que la frise + graduations)
-    drawTimeline();
-
-    // DOM
-    drawPeriods();
-    drawArtists();
-    drawEvents();
-
-    updateViewOffset();
+  // Image preview
+  document.getElementById('eventImage').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const preview = document.getElementById('eventPreview');
+      preview.src = ev.target.result;
+      preview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function applyBackgroundToContainer() {
-    container.style.backgroundColor = settings.bgColor;
-    container.classList.toggle('grid', !!settings.showGrid);
+  container.style.backgroundColor = settings.bgColor;
+  container.classList.toggle('grid', !!settings.showGrid);
+}
+
+function updateViewOffset() {
+  canvas.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
+  eventsContainer.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
+}
+
+// -------------------- Conversions temps <-> X --------------------
+function yearToX(year) {
+  const totalYears = settings.endYear - settings.startYear;
+  return ((year - settings.startYear) / totalYears) * canvas.width;
+}
+
+function xToYear(x) {
+  const totalYears = settings.endYear - settings.startYear;
+  return Math.round((x / canvas.width) * totalYears + settings.startYear);
+}
+
+// -------------------- Render --------------------
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawTimeline();   // frise + graduations (avec petites graduations)
+
+  drawPeriods();    // DOM
+  drawArtists();    // DOM
+  drawEvents();     // DOM
+
+  updateViewOffset();
 }
 
 function drawTimeline() {
-    const y = settings.timelineY;
-    const thickness = settings.timelineThickness;
-    const halfThickness = thickness / 2;
+  const y = settings.timelineY;
+  const thickness = settings.timelineThickness;
+  const half = thickness / 2;
 
-    // Barre principale avec fond blanc (comme avant)
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, y - halfThickness, canvas.width, thickness);
+  // barre
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, y - half, canvas.width, thickness);
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(0, y - half, canvas.width, thickness);
 
-    // Contour noir épais
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 5;
-    ctx.strokeRect(0, y - halfThickness, canvas.width, thickness);
+  // grandes graduations + texte
+  ctx.strokeStyle = '#000';
+  ctx.fillStyle = '#000';
+  ctx.lineWidth = 2;
+  const fontSize = Math.max(12, Math.min(20, thickness * 0.45));
+  ctx.font = `bold ${fontSize}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
 
-    // Graduations noires
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 3;
-    ctx.fillStyle = '#000000';
-    const fontSize = Math.max(14, Math.min(22, thickness * 0.45));
-    ctx.font = `bold ${fontSize}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
-        const x = yearToX(year);
-
-        ctx.beginPath();
-        ctx.moveTo(x, y - halfThickness);
-        ctx.lineTo(x, y + halfThickness);
-        ctx.stroke();
-
-        ctx.fillText(year.toString(), x, y);
-        
-        // Petites graduations entre les grandes (10 subdivisions)
-const minorDiv = 10;
-const minorStep = Math.max(1, Math.round(settings.scale / minorDiv));
-
-ctx.strokeStyle = '#000000';
-ctx.lineWidth = 1;
-
-for (let year = settings.startYear; year <= settings.endYear; year += minorStep) {
-    if ((year - settings.startYear) % settings.scale === 0) continue; // skip grandes
+  for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
     const x = yearToX(year);
 
-    // tick plus court
     ctx.beginPath();
-    ctx.moveTo(x, y - halfThickness);
-    ctx.lineTo(x, y - halfThickness + (thickness * 0.35));
+    ctx.moveTo(x, y - half);
+    ctx.lineTo(x, y + half);
+    ctx.stroke();
+
+    ctx.fillText(String(year), x, y);
+  }
+
+  // petites graduations
+  const div = Math.max(2, settings.minorDivisions || 10);
+  const minorStep = Math.max(1, Math.round(settings.scale / div));
+
+  ctx.lineWidth = 1;
+
+  for (let year = settings.startYear; year <= settings.endYear; year += minorStep) {
+    if ((year - settings.startYear) % settings.scale === 0) continue;
+    const x = yearToX(year);
+
+    const tick = thickness * 0.35;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y - half);
+    ctx.lineTo(x, y - half + tick);
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(x, y + halfThickness);
-    ctx.lineTo(x, y + halfThickness - (thickness * 0.35));
+    ctx.moveTo(x, y + half);
+    ctx.lineTo(x, y + half - tick);
     ctx.stroke();
+  }
 }
 
-    }
-}
-
-function drawPeriods() {
-    const existingPeriods = document.querySelectorAll('.period-bar');
-    existingPeriods.forEach(el => el.remove());
-
-    periods.forEach(period => {
-        const startX = yearToX(parseInt(period.startYear));
-        const endX = yearToX(parseInt(period.endYear));
-        const width = endX - startX;
-
-        const div = document.createElement('div');
-        div.className = 'period-bar' + (selectedItem?.id === period.id ? ' selected' : '');
-        div.style.left = startX + 'px';
-        div.style.top = period.y + 'px';
-        div.style.width = width + 'px';
-        div.style.height = period.height + 'px';
-        div.style.background = period.color;
-
-        const nameSize = period.nameSize || 13;
-const datesSize = period.datesSize || 11;
-const nameBold = period.nameBold !== undefined ? period.nameBold : true;
-const datesBold = period.datesBold !== undefined ? period.datesBold : false;
-const textOffsetY = period.textOffsetY || 0;
-
-div.innerHTML = `
-  <div class="period-name selectable-text"
-       data-owner="period" data-id="${period.id}" data-text="name"
-       style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; transform: translateY(${textOffsetY}px);">
-       ${period.name}
-  </div>
-  <div class="period-dates selectable-text"
-       data-owner="period" data-id="${period.id}" data-text="dates"
-       style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; transform: translateY(${textOffsetY}px);">
-       ${period.startYear} - ${period.endYear}
-  </div>
-`;
-        div.querySelectorAll('.selectable-text').forEach(el => {
-    el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectGenericTextElement(el);
-    });
-    el.addEventListener('mousedown', (e) => {
-        // drag vertical du texte seulement
-        if (selectedTextElement && selectedTextElement.element === el) {
-            e.stopPropagation();
-            const p = periods.find(x => x.id === period.id);
-            if (!p) return;
-            const m = getMouseWorldPos(e);
-            draggedItem = { type: 'periodText', item: p, baseY: m.y - (p.textOffsetY || 0) };
-        }
-    });
-});
-
-        div.addEventListener('mousedown', (e) => startDragPeriod(e, period));
-        div.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectItem(period, 'period');
-        });
-
-        eventsContainer.appendChild(div);
-    });
-}
-
-function drawArtists() {
-    const existingArtists = document.querySelectorAll('.artist-line');
-    existingArtists.forEach(el => el.remove());
-
-    artists.forEach(artist => {
-        const birthX = yearToX(parseInt(artist.birthYear));
-        const deathX = yearToX(parseInt(artist.deathYear));
-        const width = deathX - birthX;
-
-        const div = document.createElement('div');
-        div.className = 'artist-line' + (selectedItem?.id === artist.id ? ' selected' : '');
-        div.style.left = birthX + 'px';
-        div.style.top = artist.y + 'px';
-        div.style.width = width + 'px';
-
-       const nameSize = artist.nameSize || 12;
-const datesSize = artist.datesSize || 10;
-const nameBold = artist.nameBold !== undefined ? artist.nameBold : true;
-const datesBold = artist.datesBold !== undefined ? artist.datesBold : false;
-const textOffsetY = artist.textOffsetY || 0;
-
-div.innerHTML = `
-  <div class="artist-marker" style="left: 0;"></div>
-  <div class="artist-marker" style="left: ${width - 10}px;"></div>
-
-  <div class="artist-name selectable-text"
-       data-owner="artist" data-id="${artist.id}" data-text="name"
-       style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; transform: translate(-50%, ${textOffsetY}px);">
-       ${artist.name}
-  </div>
-
-  <div class="artist-dates selectable-text"
-       data-owner="artist" data-id="${artist.id}" data-text="dates"
-       style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; transform: translate(-50%, ${textOffsetY}px);">
-       ${artist.birthYear} à ${artist.deathYear}
-  </div>
-`;
-        
-div.querySelectorAll('.selectable-text').forEach(el => {
-    el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectGenericTextElement(el);
-    });
-    el.addEventListener('mousedown', (e) => {
-        if (selectedTextElement && selectedTextElement.element === el) {
-            e.stopPropagation();
-            const a = artists.find(x => x.id === artist.id);
-            if (!a) return;
-            const m = getMouseWorldPos(e);
-            draggedItem = { type: 'artistText', item: a, baseY: m.y - (a.textOffsetY || 0) };
-        }
-    });
-});
-
-        div.addEventListener('mousedown', (e) => startDragArtist(e, artist));
-        div.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectItem(artist, 'artist');
-        });
-
-        eventsContainer.appendChild(div);
-    });
-}
-
-function drawEvents() {
-    const existingEvents = document.querySelectorAll('.event-card');
-    existingEvents.forEach(el => el.remove());
-
-    const existingLines = document.querySelectorAll('.connection-line');
-    existingLines.forEach(el => el.remove());
-
-    events.forEach(event => {
-        const x = yearToX(parseInt(event.year));
-        const halfThickness = settings.timelineThickness / 2;
-        const timelineTop = settings.timelineY - halfThickness;
-        const timelineBottom = settings.timelineY + halfThickness;
-        const eventBottom = event.y + event.height;
-        const eventAboveTimeline = eventBottom < timelineTop;
-
-        const card = document.createElement('div');
-        card.className = 'event-card' + (selectedItem?.id === event.id ? ' selected' : '');
-        card.style.left = (x - event.width / 2) + 'px';
-        card.style.top = event.y + 'px';
-        card.style.width = event.width + 'px';
-        card.style.height = event.height + 'px';
-
-        const titleSize = event.customTitleSize || 12;
-        const titleBold = event.customTitleBold !== undefined ? event.customTitleBold : false;
-        const yearSize = event.customYearSize || 10;
-        const yearBold = event.customYearBold !== undefined ? event.customYearBold : false;
-
-        card.innerHTML = `
-            <img src="${event.image}" alt="${event.name}">
-            <div class="event-title" data-event-id="${event.id}" data-text-type="title" style="font-size: ${titleSize}px; font-weight: ${titleBold ? 'bold' : 'normal'};">${event.name}</div>
-            <div class="event-year" data-event-id="${event.id}" data-text-type="year" style="font-size: ${yearSize}px; font-weight: ${yearBold ? 'bold' : 'normal'};">${event.year}</div>
-            <div class="resize-corner"></div>
-        `;
-
-        const lineDiv = document.createElement('div');
-        lineDiv.className = 'connection-line';
-
-        if (eventAboveTimeline) {
-            const lineHeight = timelineTop - eventBottom;
-            if (lineHeight > 0) {
-                lineDiv.style.left = x + 'px';
-                lineDiv.style.top = eventBottom + 'px';
-                lineDiv.style.height = lineHeight + 'px';
-                eventsContainer.appendChild(lineDiv);
-            }
-        } else {
-            const lineHeight = event.y - timelineBottom;
-            if (lineHeight > 0) {
-                lineDiv.style.left = x + 'px';
-                lineDiv.style.top = timelineBottom + 'px';
-                lineDiv.style.height = lineHeight + 'px';
-                eventsContainer.appendChild(lineDiv);
-            }
-        }
-
-        card.addEventListener('mousedown', (e) => {
-            if (!e.target.classList.contains('event-title') && !e.target.classList.contains('event-year')) {
-                startDragEvent(e, event);
-            }
-        });
-        card.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectItem(event, 'event');
-        });
-
-        const titleEl = card.querySelector('.event-title');
-        const yearEl = card.querySelector('.event-year');
-
-        titleEl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectTextElement(event, 'title', titleEl);
-        });
-
-        yearEl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectTextElement(event, 'year', yearEl);
-        });
-
-        const resizeHandle = card.querySelector('.resize-corner');
-        resizeHandle.addEventListener('mousedown', (e) => {
-            e.stopPropagation();
-            startResizeEvent(e, event);
-        });
-
-        eventsContainer.appendChild(card);
-    });
-}
-
-function selectTextElement(event, textType, element) {
-    if (selectedTextElement) {
-        selectedTextElement.element.classList.remove('selected-text');
-    }
-
-    selectedTextElement = { event, textType, element };
-    element.classList.add('selected-text');
-
-    document.getElementById('textStyleTools').style.display = 'block';
-
-    if (textType === 'title') {
-        const size = event.customTitleSize || 12;
-        const bold = event.customTitleBold !== undefined ? event.customTitleBold : false;
-        document.getElementById('selectedTextSize').value = size;
-        document.getElementById('selectedTextSizeValue').textContent = size + 'px';
-        document.getElementById('selectedTextBold').checked = bold;
-    } else {
-        const size = event.customYearSize || 10;
-        const bold = event.customYearBold !== undefined ? event.customYearBold : false;
-        document.getElementById('selectedTextSize').value = size;
-        document.getElementById('selectedTextSizeValue').textContent = size + 'px';
-        document.getElementById('selectedTextBold').checked = bold;
-    }
+// -------------------- Sélection texte --------------------
+function clearSelectedText() {
+  if (selectedTextElement?.element) {
+    selectedTextElement.element.classList.remove('selected-text');
+  }
+  selectedTextElement = null;
+  document.getElementById('textStyleTools').style.display = 'none';
 }
 
 function selectGenericTextElement(domEl) {
-    // nettoyer ancienne sélection
-    if (selectedTextElement?.element) {
-        selectedTextElement.element.classList.remove('selected-text');
+  clearSelectedText();
+
+  const owner = domEl.dataset.owner; // event/period/artist
+  const id = parseInt(domEl.dataset.id);
+  const key = domEl.dataset.key;     // title/year/name/dates
+
+  let obj = null;
+  if (owner === 'event') obj = events.find(x => x.id === id);
+  if (owner === 'period') obj = periods.find(x => x.id === id);
+  if (owner === 'artist') obj = artists.find(x => x.id === id);
+
+  if (!obj) return;
+
+  selectedTextElement = { owner, obj, key, element: domEl };
+  domEl.classList.add('selected-text');
+  document.getElementById('textStyleTools').style.display = 'block';
+
+  let size = 12;
+  let bold = false;
+
+  if (owner === 'event') {
+    if (key === 'title') { size = obj.customTitleSize || 12; bold = obj.customTitleBold ?? false; }
+    if (key === 'year')  { size = obj.customYearSize || 10; bold = obj.customYearBold ?? false; }
+  }
+  if (owner === 'period') {
+    if (key === 'name') { size = obj.nameSize || 13; bold = obj.nameBold ?? true; }
+    if (key === 'dates'){ size = obj.datesSize || 11; bold = obj.datesBold ?? false; }
+  }
+  if (owner === 'artist') {
+    if (key === 'name') { size = obj.nameSize || 12; bold = obj.nameBold ?? true; }
+    if (key === 'dates'){ size = obj.datesSize || 10; bold = obj.datesBold ?? false; }
+  }
+
+  document.getElementById('selectedTextSize').value = size;
+  document.getElementById('selectedTextSizeValue').textContent = size + 'px';
+  document.getElementById('selectedTextBold').checked = bold;
+}
+
+// -------------------- Events (DOM) --------------------
+function ensureEventCardFitsText(ev) {
+  const minImg = 50;
+  const pad = 26;
+
+  const titleSize = ev.customTitleSize || 12;
+  const yearSize = ev.customYearSize || 10;
+
+  // estimation : titre jusqu'à 2 lignes, année 1 ligne
+  const titleH = Math.ceil(titleSize * 1.25 * 2);
+  const yearH = Math.ceil(yearSize * 1.25 * 1);
+
+  const minTotal = minImg + titleH + yearH + pad;
+  if (ev.height < minTotal) ev.height = minTotal;
+  if (ev.width < 80) ev.width = 80;
+  if (ev.height < 80) ev.height = 80;
+}
+
+function drawEvents() {
+  document.querySelectorAll('.event-card').forEach(el => el.remove());
+  document.querySelectorAll('.connection-line').forEach(el => el.remove());
+
+  for (const ev of events) {
+    ensureEventCardFitsText(ev);
+
+    const x = yearToX(parseInt(ev.year));
+    const left = x - ev.width / 2;
+
+    const card = document.createElement('div');
+    card.className = 'event-card' + (selectedItem?.type === 'event' && selectedItem?.id === ev.id ? ' selected' : '');
+    card.style.left = left + 'px';
+    card.style.top = ev.y + 'px';
+    card.style.width = ev.width + 'px';
+    card.style.height = ev.height + 'px';
+
+    const titleSize = ev.customTitleSize || 12;
+    const titleBold = ev.customTitleBold ?? false;
+    const yearSize = ev.customYearSize || 10;
+    const yearBold = ev.customYearBold ?? false;
+
+    card.innerHTML = `
+      <img src="${ev.image}" alt="${escapeHtml(ev.name)}">
+      <div class="event-title" data-owner="event" data-id="${ev.id}" data-key="title"
+           style="font-size:${titleSize}px; font-weight:${titleBold ? 'bold':'normal'}">${escapeHtml(ev.name)}</div>
+      <div class="event-year" data-owner="event" data-id="${ev.id}" data-key="year"
+           style="font-size:${yearSize}px; font-weight:${yearBold ? 'bold':'normal'}">${escapeHtml(String(ev.year))}</div>
+
+      <div class="resize-h" title="Redimensionner largeur"></div>
+      <div class="resize-v" title="Redimensionner hauteur"></div>
+      <div class="resize-corner" title="Redimensionner proportionnel"></div>
+    `;
+
+    // sélection item
+    card.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectItem(ev, 'event');
+    });
+
+    // drag vertical
+    card.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('resize-h') ||
+          e.target.classList.contains('resize-v') ||
+          e.target.classList.contains('resize-corner')) return;
+
+      // si clique sur texte -> pas drag carte
+      if (e.target.classList.contains('event-title') || e.target.classList.contains('event-year')) return;
+
+      const m = getMouseWorldPos(e);
+      draggedItem = { type: 'event', item: ev, offsetY: m.y - ev.y };
+    });
+
+    // sélection texte
+    card.querySelectorAll('[data-owner="event"]').forEach(el => {
+      el.addEventListener('click', (e) => { e.stopPropagation(); selectGenericTextElement(el); });
+    });
+
+    // resize largeur
+    card.querySelector('.resize-h').addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = { type: 'eventW', item: ev, startX: m.x, startW: ev.width };
+    });
+
+    // resize hauteur
+    card.querySelector('.resize-v').addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = { type: 'eventH', item: ev, startY: m.y, startH: ev.height };
+    });
+
+    // resize proportionnel
+    card.querySelector('.resize-corner').addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = { type: 'eventP', item: ev, startX: m.x, startY: m.y, startW: ev.width, startH: ev.height };
+    });
+
+    // ligne vers frise
+    const line = document.createElement('div');
+    line.className = 'connection-line';
+
+    const half = settings.timelineThickness / 2;
+    const topTimeline = settings.timelineY - half;
+    const bottomTimeline = settings.timelineY + half;
+
+    const evBottom = ev.y + ev.height;
+    const evAbove = evBottom < topTimeline;
+
+    let lineTop = 0;
+    let lineHeight = 0;
+
+    if (evAbove) {
+      lineTop = evBottom;
+      lineHeight = topTimeline - evBottom;
+    } else {
+      lineTop = bottomTimeline;
+      lineHeight = ev.y - bottomTimeline;
     }
 
-    const owner = domEl.dataset.owner; // "event" / "period" / "artist"
-    const id = parseInt(domEl.dataset.id);
-    const textKey = domEl.dataset.text; // "title/year/name/dates"
-
-    let obj = null;
-    if (owner === 'period') obj = periods.find(x => x.id === id);
-    if (owner === 'artist') obj = artists.find(x => x.id === id);
-
-    if (!obj) return;
-
-    selectedTextElement = { owner, obj, textKey, element: domEl };
-    domEl.classList.add('selected-text');
-
-    document.getElementById('textStyleTools').style.display = 'block';
-
-    // charger valeurs dans l'UI
-    let size = 12;
-    let bold = false;
-
-    if (owner === 'period') {
-        size = (textKey === 'name') ? (obj.nameSize || 13) : (obj.datesSize || 11);
-        bold = (textKey === 'name') ? (obj.nameBold ?? true) : (obj.datesBold ?? false);
-    } else if (owner === 'artist') {
-        size = (textKey === 'name') ? (obj.nameSize || 12) : (obj.datesSize || 10);
-        bold = (textKey === 'name') ? (obj.nameBold ?? true) : (obj.datesBold ?? false);
+    if (lineHeight > 0) {
+      line.style.left = x + 'px';
+      line.style.top = lineTop + 'px';
+      line.style.height = lineHeight + 'px';
+      eventsContainer.appendChild(line);
     }
 
-    document.getElementById('selectedTextSize').value = size;
-    document.getElementById('selectedTextSizeValue').textContent = size + 'px';
-    document.getElementById('selectedTextBold').checked = bold;
+    eventsContainer.appendChild(card);
+  }
 }
 
+// -------------------- Periods (DOM) --------------------
+function drawPeriods() {
+  document.querySelectorAll('.period-bar').forEach(el => el.remove());
 
-// Drag & Drop handlers
-function startDragEvent(e, event) {
-    e.stopPropagation();
-    const m = getMouseWorldPos(e);
-    draggedItem = {
-        item: event,
-        type: 'event',
-        offsetY: m.y - event.y
-    };
+  for (const p of periods) {
+    const startX = yearToX(parseInt(p.startYear));
+    const endX = yearToX(parseInt(p.endYear));
+    const width = endX - startX;
+
+    const div = document.createElement('div');
+    div.className = 'period-bar' + (selectedItem?.type === 'period' && selectedItem?.id === p.id ? ' selected' : '');
+    div.style.left = startX + 'px';
+    div.style.top = p.y + 'px';
+    div.style.width = width + 'px';
+    div.style.height = (p.height || 40) + 'px';
+    div.style.background = p.color || '#4299e1';
+
+    const nameSize = p.nameSize || 13;
+    const datesSize = p.datesSize || 11;
+    const nameBold = p.nameBold ?? true;
+    const datesBold = p.datesBold ?? false;
+
+    div.innerHTML = `
+      <div class="period-name" data-owner="period" data-id="${p.id}" data-key="name"
+           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}">${escapeHtml(p.name)}</div>
+      <div class="period-dates" data-owner="period" data-id="${p.id}" data-key="dates"
+           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}">${escapeHtml(p.startYear)} - ${escapeHtml(p.endYear)}</div>
+    `;
+
+    div.addEventListener('click', (e) => { e.stopPropagation(); selectItem(p, 'period'); });
+
+    // drag vertical période
+    div.addEventListener('mousedown', (e) => {
+      // si clic sur texte : pas drag barre (on laisse le texte sélectionnable)
+      if (e.target.dataset && e.target.dataset.owner === 'period') return;
+      const m = getMouseWorldPos(e);
+      draggedItem = { type: 'period', item: p, offsetY: m.y - p.y };
+    });
+
+    // sélection texte
+    div.querySelectorAll('[data-owner="period"]').forEach(el => {
+      el.addEventListener('click', (e) => { e.stopPropagation(); selectGenericTextElement(el); });
+    });
+
+    eventsContainer.appendChild(div);
+  }
 }
 
-function startDragPeriod(e, period) {
-    e.stopPropagation();
-    const m = getMouseWorldPos(e);
-    draggedItem = {
-        item: period,
-        type: 'period',
-        offsetY: m.y - period.y
-    };
+// -------------------- Artists (rectangle) --------------------
+function ensureArtistBoxFitsText(a) {
+  const pad = 18;
+  const nameSize = a.nameSize || 12;
+  const datesSize = a.datesSize || 10;
+
+  const nameH = Math.ceil(nameSize * 1.2 * 2);  // jusqu'à 2 lignes
+  const datesH = Math.ceil(datesSize * 1.2 * 1);
+
+  const minH = pad + nameH + datesH;
+  a.height = Math.max(a.height || 36, minH, 28);
 }
 
-function startDragArtist(e, artist) {
-    e.stopPropagation();
-    const m = getMouseWorldPos(e);
-    draggedItem = {
-        item: artist,
-        type: 'artist',
-        offsetY: m.y - artist.y
-    };
+function drawArtists() {
+  document.querySelectorAll('.artist-box').forEach(el => el.remove());
+
+  for (const a of artists) {
+    ensureArtistBoxFitsText(a);
+
+    const birthX = yearToX(parseInt(a.birthYear));
+    const deathX = yearToX(parseInt(a.deathYear));
+    const width = Math.max(80, deathX - birthX); // min visuel
+
+    const div = document.createElement('div');
+    div.className = 'artist-box' + (selectedItem?.type === 'artist' && selectedItem?.id === a.id ? ' selected' : '');
+    div.style.left = birthX + 'px';
+    div.style.top = a.y + 'px';
+    div.style.width = width + 'px';
+    div.style.height = a.height + 'px';
+
+    const nameSize = a.nameSize || 12;
+    const datesSize = a.datesSize || 10;
+    const nameBold = a.nameBold ?? true;
+    const datesBold = a.datesBold ?? false;
+
+    div.innerHTML = `
+      <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
+           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}">${escapeHtml(a.name)}</div>
+      <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
+           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
+
+      <div class="artist-resize-left" title="Ajuster année début"></div>
+      <div class="artist-resize-right" title="Ajuster année fin"></div>
+      <div class="artist-resize-bottom" title="Ajuster hauteur"></div>
+      <div class="artist-resize-corner" title="Proportionnel"></div>
+    `;
+
+    // sélection item
+    div.addEventListener('click', (e) => { e.stopPropagation(); selectItem(a, 'artist'); });
+
+    // drag vertical (boîte)
+    div.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('artist-resize-left') ||
+          e.target.classList.contains('artist-resize-right') ||
+          e.target.classList.contains('artist-resize-bottom') ||
+          e.target.classList.contains('artist-resize-corner')) return;
+
+      // si on clique sur texte : pas drag boîte
+      if (e.target.dataset && e.target.dataset.owner === 'artist') return;
+
+      const m = getMouseWorldPos(e);
+      draggedItem = { type: 'artist', item: a, offsetY: m.y - a.y };
+    });
+
+    // sélection texte artiste
+    div.querySelectorAll('[data-owner="artist"]').forEach(el => {
+      el.addEventListener('click', (e) => { e.stopPropagation(); selectGenericTextElement(el); });
+    });
+
+    // resize années (gauche/droite)
+    div.querySelector('.artist-resize-left').addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = { type: 'artistLeft', item: a, startX: m.x, startBirth: parseInt(a.birthYear), startDeath: parseInt(a.deathYear) };
+    });
+    div.querySelector('.artist-resize-right').addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = { type: 'artistRight', item: a, startX: m.x, startBirth: parseInt(a.birthYear), startDeath: parseInt(a.deathYear) };
+    });
+
+    // resize hauteur
+    div.querySelector('.artist-resize-bottom').addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = { type: 'artistH', item: a, startY: m.y, startH: a.height };
+    });
+
+    // resize proportionnel (largeur -> années + hauteur)
+    div.querySelector('.artist-resize-corner').addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = {
+        type: 'artistP',
+        item: a,
+        startX: m.x,
+        startY: m.y,
+        startBirth: parseInt(a.birthYear),
+        startDeath: parseInt(a.deathYear),
+        startH: a.height
+      };
+    });
+
+    eventsContainer.appendChild(div);
+  }
 }
 
-function handleItemDrag(e) {
-    if (!draggedItem) return;
+// -------------------- Drag / Resize handlers --------------------
+function handleDrag(e) {
+  const m = getMouseWorldPos(e);
 
-    const m = getMouseWorldPos(e);
-    const newY = m.y - draggedItem.offsetY;
+  if (draggedItem.type === 'event') {
+    const ev = draggedItem.item;
+    ev.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - ev.height);
+    render(); saveToLocalStorageSilent();
+    return;
+  }
 
-    if (draggedItem.type === 'event') {
-        const ev = events.find(x => x.id === draggedItem.item.id);
-        if (ev) {
-            // autoriser tout le haut, mais pas au-delà des limites du canvas
-            ev.y = Math.max(0, Math.min(canvas.height - ev.height, newY));
-            render();
-            saveToLocalStorageSilent();
-        }
-    } else if (draggedItem.type === 'period') {
-        const p = periods.find(x => x.id === draggedItem.item.id);
-        if (p) {
-            p.y = Math.max(0, Math.min(canvas.height - p.height, newY));
-            render();
-            saveToLocalStorageSilent();
-        }
-    } else if (draggedItem.type === 'artist') {
-        const a = artists.find(x => x.id === draggedItem.item.id);
-        if (a) {
-            a.y = Math.max(0, Math.min(canvas.height, newY));
-            render();
-            saveToLocalStorageSilent();
-        }
-    } else if (draggedItem.type === 'periodText') {
-        const p = periods.find(x => x.id === draggedItem.item.id);
-        if (p) {
-            p.textOffsetY = Math.max(-200, Math.min(200, m.y - draggedItem.baseY));
-            render();
-            saveToLocalStorageSilent();
-        }
-    } else if (draggedItem.type === 'artistText') {
-        const a = artists.find(x => x.id === draggedItem.item.id);
-        if (a) {
-            a.textOffsetY = Math.max(-200, Math.min(200, m.y - draggedItem.baseY));
-            render();
-            saveToLocalStorageSilent();
-        }
-    }
+  if (draggedItem.type === 'period') {
+    const p = draggedItem.item;
+    const h = p.height || 40;
+    p.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - h);
+    render(); saveToLocalStorageSilent();
+    return;
+  }
+
+  if (draggedItem.type === 'artist') {
+    const a = draggedItem.item;
+    a.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - (a.height || 36));
+    render(); saveToLocalStorageSilent();
+    return;
+  }
 }
 
-function handleItemResize(e) {
-    if (!resizingItem) return;
+function handleResize(e) {
+  const m = getMouseWorldPos(e);
 
-    const deltaX = (e.clientX - resizingItem.startX) / settings.zoom;
-    const deltaY = (e.clientY - resizingItem.startY) / settings.zoom;
-    const delta = Math.max(deltaX, deltaY);
+  // Events
+  if (resizingItem.type === 'eventW') {
+    const ev = resizingItem.item;
+    const dx = m.x - resizingItem.startX;
+    ev.width = clamp(resizingItem.startW + dx, 80, 800);
+    ensureEventCardFitsText(ev);
+    render(); saveToLocalStorageSilent();
+    return;
+  }
+  if (resizingItem.type === 'eventH') {
+    const ev = resizingItem.item;
+    const dy = m.y - resizingItem.startY;
+    ev.height = clamp(resizingItem.startH + dy, 80, 900);
+    ensureEventCardFitsText(ev);
+    render(); saveToLocalStorageSilent();
+    return;
+  }
+  if (resizingItem.type === 'eventP') {
+    const ev = resizingItem.item;
+    const dx = m.x - resizingItem.startX;
+    const dy = m.y - resizingItem.startY;
+    const d = Math.max(dx, dy);
+    ev.width = clamp(resizingItem.startW + d, 80, 800);
+    ev.height = clamp(resizingItem.startH + d, 80, 900);
+    ensureEventCardFitsText(ev);
+    render(); saveToLocalStorageSilent();
+    return;
+  }
 
-    const event = events.find(ev => ev.id === resizingItem.item.id);
-    if (event) {
-        event.width = Math.max(80, resizingItem.startWidth + delta);
-        event.height = Math.max(80, resizingItem.startHeight + delta);
-        render();
-        saveToLocalStorageSilent();
-    }
+  // Artists (années + hauteur)
+  if (resizingItem.type === 'artistLeft') {
+    const a = resizingItem.item;
+    const deltaYears = xToYear(yearToX(resizingItem.startBirth) + (m.x - resizingItem.startX)) - resizingItem.startBirth;
+    let newBirth = resizingItem.startBirth + deltaYears;
+    newBirth = clamp(newBirth, settings.startYear, resizingItem.startDeath - 1);
+    a.birthYear = String(newBirth);
+    render(); saveToLocalStorageSilent();
+    return;
+  }
+
+  if (resizingItem.type === 'artistRight') {
+    const a = resizingItem.item;
+    const deltaYears = xToYear(yearToX(resizingItem.startDeath) + (m.x - resizingItem.startX)) - resizingItem.startDeath;
+    let newDeath = resizingItem.startDeath + deltaYears;
+    newDeath = clamp(newDeath, resizingItem.startBirth + 1, settings.endYear);
+    a.deathYear = String(newDeath);
+    render(); saveToLocalStorageSilent();
+    return;
+  }
+
+  if (resizingItem.type === 'artistH') {
+    const a = resizingItem.item;
+    const dy = m.y - resizingItem.startY;
+    a.height = clamp(resizingItem.startH + dy, 28, 300);
+    ensureArtistBoxFitsText(a);
+    render(); saveToLocalStorageSilent();
+    return;
+  }
+
+  if (resizingItem.type === 'artistP') {
+    const a = resizingItem.item;
+
+    const dx = m.x - resizingItem.startX;
+    const dy = m.y - resizingItem.startY;
+    const d = Math.max(dx, dy);
+
+    // proportionnel : on allonge la durée (droite) + hauteur
+    const startBirth = resizingItem.startBirth;
+    const startDeath = resizingItem.startDeath;
+    const startDur = startDeath - startBirth;
+
+    // convert d (pixels) -> années
+    const yearAtPx = xToYear(yearToX(startDeath) + d);
+    let newDeath = clamp(yearAtPx, startBirth + 1, settings.endYear);
+
+    // garder au moins 1 an
+    if (newDeath <= startBirth) newDeath = startBirth + 1;
+
+    a.deathYear = String(newDeath);
+
+    a.height = clamp(resizingItem.startH + d, 28, 300);
+    ensureArtistBoxFitsText(a);
+
+    render(); saveToLocalStorageSilent();
+    return;
+  }
 }
-function ensureEventCardFitsText(event) {
-    // Hauteurs minimales (ajustables)
-    const minImg = 50;
-    const paddingAndGaps = 22; // marge/padding approximatifs
 
-    const titleSize = event.customTitleSize || 12;
-    const yearSize = event.customYearSize || 10;
-
-    // Estimation simple de hauteur texte (robuste sans mesure DOM)
-    // 2 lignes max pour le titre, 1 ligne pour l'année
-    const titleH = Math.ceil(titleSize * 1.2 * 2);
-    const yearH = Math.ceil(yearSize * 1.2 * 1);
-
-    const minTotal = minImg + titleH + yearH + paddingAndGaps;
-
-    if (event.height < minTotal) {
-        event.height = minTotal;
-    }
-}
-
-// Sélection d'item
+// -------------------- Sélection item + actions --------------------
 function selectItem(item, type) {
-    selectedItem = { ...item, type };
-    document.getElementById('selectedItemActions').style.display = 'block';
-    render();
-}
-
-// Modals (inchangées)
-function showEventModal() {
-    document.getElementById('eventModal').classList.add('show');
-    editMode = false;
-    document.getElementById('eventModalTitle').textContent = 'Ajouter un événement';
-    document.getElementById('eventName').value = '';
-    document.getElementById('eventYear').value = '';
-    document.getElementById('eventImage').value = '';
-    document.getElementById('eventPreview').style.display = 'none';
-}
-
-function showPeriodModal() {
-    document.getElementById('periodModal').classList.add('show');
-    editMode = false;
-    document.getElementById('periodModalTitle').textContent = 'Ajouter une période';
-    document.getElementById('periodName').value = '';
-    document.getElementById('periodStart').value = '';
-    document.getElementById('periodEnd').value = '';
-    document.getElementById('periodColor').value = '#4299e1';
-    document.getElementById('periodHeight').value = '40';
-    document.getElementById('periodHeightValue').textContent = '40px';
-}
-
-function showArtistModal() {
-    document.getElementById('artistModal').classList.add('show');
-    editMode = false;
-    document.getElementById('artistModalTitle').textContent = 'Ajouter un artiste';
-    document.getElementById('artistName').value = '';
-    document.getElementById('artistBirth').value = '';
-    document.getElementById('artistDeath').value = '';
-}
-
-function closeModals() {
-    document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
-}
-
-function saveEvent() {
-    const name = document.getElementById('eventName').value;
-    const year = document.getElementById('eventYear').value;
-    const preview = document.getElementById('eventPreview');
-    const image = preview.src;
-
-    if (!name || !year || !image || image === window.location.href) {
-        alert('Veuillez remplir tous les champs');
-        return;
-    }
-
-    if (editMode && selectedItem) {
-        const event = events.find(e => e.id === selectedItem.id);
-        if (event) {
-            event.name = name;
-            event.year = year;
-            event.image = image;
-        }
-    } else {
-        events.push({
-            id: Date.now(),
-            name,
-            year,
-            image,
-            y: 100,
-            width: 120,
-            height: 120
-        });
-    }
-
-    closeModals();
-    render();
-    saveToLocalStorageSilent();
-}
-
-function savePeriod() {
-    const name = document.getElementById('periodName').value;
-    const startYear = document.getElementById('periodStart').value;
-    const endYear = document.getElementById('periodEnd').value;
-    const color = document.getElementById('periodColor').value;
-    const height = parseInt(document.getElementById('periodHeight').value);
-
-    if (!name || !startYear || !endYear) {
-        alert('Veuillez remplir tous les champs');
-        return;
-    }
-
-    if (editMode && selectedItem) {
-        const period = periods.find(p => p.id === selectedItem.id);
-        if (period) {
-            period.name = name;
-            period.startYear = startYear;
-            period.endYear = endYear;
-            period.color = color;
-            period.height = height;
-        }
-    } else {
-        periods.push({
-            id: Date.now(),
-            name,
-            startYear,
-            endYear,
-            color,
-            y: 50,
-            height: height
-        });
-    }
-
-    closeModals();
-    render();
-    saveToLocalStorageSilent();
-}
-
-function saveArtist() {
-    const name = document.getElementById('artistName').value;
-    const birthYear = document.getElementById('artistBirth').value;
-    const deathYear = document.getElementById('artistDeath').value;
-
-    if (!name || !birthYear || !deathYear) {
-        alert('Veuillez remplir tous les champs');
-        return;
-    }
-
-    if (editMode && selectedItem) {
-        const artist = artists.find(a => a.id === selectedItem.id);
-        if (artist) {
-            artist.name = name;
-            artist.birthYear = birthYear;
-            artist.deathYear = deathYear;
-        }
-    } else {
-        artists.push({
-            id: Date.now(),
-            name,
-            birthYear,
-            deathYear,
-            y: settings.timelineY - 100
-        });
-    }
-
-    closeModals();
-    render();
-    saveToLocalStorageSilent();
+  selectedItem = { id: item.id, type };
+  document.getElementById('selectedItemActions').style.display = 'block';
+  render();
 }
 
 function editSelectedItem() {
-    if (!selectedItem) return;
+  if (!selectedItem) return;
+  editMode = true;
 
-    editMode = true;
+  if (selectedItem.type === 'event') {
+    const ev = events.find(x => x.id === selectedItem.id);
+    if (!ev) return;
 
-    if (selectedItem.type === 'event') {
-        document.getElementById('eventModalTitle').textContent = 'Modifier l\'événement';
-        document.getElementById('eventName').value = selectedItem.name;
-        document.getElementById('eventYear').value = selectedItem.year;
-        document.getElementById('eventPreview').src = selectedItem.image;
-        document.getElementById('eventPreview').style.display = 'block';
-        document.getElementById('eventModal').classList.add('show');
-    } else if (selectedItem.type === 'period') {
-        document.getElementById('periodModalTitle').textContent = 'Modifier la période';
-        document.getElementById('periodName').value = selectedItem.name;
-        document.getElementById('periodStart').value = selectedItem.startYear;
-        document.getElementById('periodEnd').value = selectedItem.endYear;
-        document.getElementById('periodColor').value = selectedItem.color;
-        document.getElementById('periodHeight').value = selectedItem.height || 40;
-        document.getElementById('periodHeightValue').textContent = (selectedItem.height || 40) + 'px';
-        document.getElementById('periodModal').classList.add('show');
-    } else if (selectedItem.type === 'artist') {
-        document.getElementById('artistModalTitle').textContent = 'Modifier l\'artiste';
-        document.getElementById('artistName').value = selectedItem.name;
-        document.getElementById('artistBirth').value = selectedItem.birthYear;
-        document.getElementById('artistDeath').value = selectedItem.deathYear;
-        document.getElementById('artistModal').classList.add('show');
-    }
+    document.getElementById('eventModalTitle').textContent = "Modifier l'événement";
+    document.getElementById('eventName').value = ev.name;
+    document.getElementById('eventYear').value = ev.year;
+    document.getElementById('eventPreview').src = ev.image;
+    document.getElementById('eventPreview').style.display = 'block';
+    document.getElementById('eventModal').classList.add('show');
+    return;
+  }
+
+  if (selectedItem.type === 'period') {
+    const p = periods.find(x => x.id === selectedItem.id);
+    if (!p) return;
+
+    document.getElementById('periodModalTitle').textContent = "Modifier la période";
+    document.getElementById('periodName').value = p.name;
+    document.getElementById('periodStart').value = p.startYear;
+    document.getElementById('periodEnd').value = p.endYear;
+    document.getElementById('periodColor').value = p.color || '#4299e1';
+    document.getElementById('periodHeight').value = p.height || 40;
+    document.getElementById('periodHeightValue').textContent = (p.height || 40) + 'px';
+    document.getElementById('periodModal').classList.add('show');
+    return;
+  }
+
+  if (selectedItem.type === 'artist') {
+    const a = artists.find(x => x.id === selectedItem.id);
+    if (!a) return;
+
+    document.getElementById('artistModalTitle').textContent = "Modifier l'artiste";
+    document.getElementById('artistName').value = a.name;
+    document.getElementById('artistBirth').value = a.birthYear;
+    document.getElementById('artistDeath').value = a.deathYear;
+    document.getElementById('artistModal').classList.add('show');
+    return;
+  }
 }
 
 function deleteSelectedItem() {
-    if (!selectedItem) return;
+  if (!selectedItem) return;
 
-    if (selectedItem.type === 'event') {
-        events = events.filter(e => e.id !== selectedItem.id);
-    } else if (selectedItem.type === 'period') {
-        periods = periods.filter(p => p.id !== selectedItem.id);
-    } else if (selectedItem.type === 'artist') {
-        artists = artists.filter(a => a.id !== selectedItem.id);
-    }
+  if (selectedItem.type === 'event') events = events.filter(x => x.id !== selectedItem.id);
+  if (selectedItem.type === 'period') periods = periods.filter(x => x.id !== selectedItem.id);
+  if (selectedItem.type === 'artist') artists = artists.filter(x => x.id !== selectedItem.id);
 
-    selectedItem = null;
-    document.getElementById('selectedItemActions').style.display = 'none';
-    render();
-    saveToLocalStorageSilent();
+  selectedItem = null;
+  document.getElementById('selectedItemActions').style.display = 'none';
+  clearSelectedText();
+  render();
+  saveToLocalStorageSilent();
 }
 
+// -------------------- Modals --------------------
+function showEventModal() {
+  document.getElementById('eventModal').classList.add('show');
+  editMode = false;
+  document.getElementById('eventModalTitle').textContent = 'Ajouter un événement';
+  document.getElementById('eventName').value = '';
+  document.getElementById('eventYear').value = '';
+  document.getElementById('eventImage').value = '';
+  document.getElementById('eventPreview').style.display = 'none';
+}
+
+function showPeriodModal() {
+  document.getElementById('periodModal').classList.add('show');
+  editMode = false;
+  document.getElementById('periodModalTitle').textContent = 'Ajouter une période';
+  document.getElementById('periodName').value = '';
+  document.getElementById('periodStart').value = '';
+  document.getElementById('periodEnd').value = '';
+  document.getElementById('periodColor').value = '#4299e1';
+  document.getElementById('periodHeight').value = '40';
+  document.getElementById('periodHeightValue').textContent = '40px';
+}
+
+function showArtistModal() {
+  document.getElementById('artistModal').classList.add('show');
+  editMode = false;
+  document.getElementById('artistModalTitle').textContent = 'Ajouter un artiste';
+  document.getElementById('artistName').value = '';
+  document.getElementById('artistBirth').value = '';
+  document.getElementById('artistDeath').value = '';
+}
+
+function closeModals() {
+  document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
+}
+
+function saveEvent() {
+  const name = document.getElementById('eventName').value.trim();
+  const year = document.getElementById('eventYear').value.trim();
+  const img = document.getElementById('eventPreview').src;
+
+  if (!name || !year || !img || img === window.location.href) {
+    alert('Veuillez remplir tous les champs');
+    return;
+  }
+
+  if (editMode && selectedItem?.type === 'event') {
+    const ev = events.find(x => x.id === selectedItem.id);
+    if (ev) {
+      ev.name = name;
+      ev.year = year;
+      ev.image = img;
+      ensureEventCardFitsText(ev);
+    }
+  } else {
+    const ev = {
+      id: Date.now(),
+      name,
+      year,
+      image: img,
+      y: 100,
+      width: 140,
+      height: 160,
+      customTitleSize: 12,
+      customYearSize: 10
+    };
+    ensureEventCardFitsText(ev);
+    events.push(ev);
+  }
+
+  closeModals();
+  render();
+  saveToLocalStorageSilent();
+}
+
+function savePeriod() {
+  const name = document.getElementById('periodName').value.trim();
+  const startYear = document.getElementById('periodStart').value.trim();
+  const endYear = document.getElementById('periodEnd').value.trim();
+  const color = document.getElementById('periodColor').value;
+  const height = parseInt(document.getElementById('periodHeight').value, 10);
+
+  if (!name || !startYear || !endYear) {
+    alert('Veuillez remplir tous les champs');
+    return;
+  }
+
+  if (editMode && selectedItem?.type === 'period') {
+    const p = periods.find(x => x.id === selectedItem.id);
+    if (p) {
+      p.name = name;
+      p.startYear = startYear;
+      p.endYear = endYear;
+      p.color = color;
+      p.height = height;
+    }
+  } else {
+    periods.push({
+      id: Date.now(),
+      name,
+      startYear,
+      endYear,
+      color,
+      y: 50,
+      height: height,
+      nameSize: 13,
+      datesSize: 11,
+      nameBold: true,
+      datesBold: false
+    });
+  }
+
+  closeModals();
+  render();
+  saveToLocalStorageSilent();
+}
+
+function saveArtist() {
+  const name = document.getElementById('artistName').value.trim();
+  const birthYear = document.getElementById('artistBirth').value.trim();
+  const deathYear = document.getElementById('artistDeath').value.trim();
+
+  if (!name || !birthYear || !deathYear) {
+    alert('Veuillez remplir tous les champs');
+    return;
+  }
+
+  if (editMode && selectedItem?.type === 'artist') {
+    const a = artists.find(x => x.id === selectedItem.id);
+    if (a) {
+      a.name = name;
+      a.birthYear = birthYear;
+      a.deathYear = deathYear;
+      ensureArtistBoxFitsText(a);
+    }
+  } else {
+    const a = {
+      id: Date.now(),
+      name,
+      birthYear,
+      deathYear,
+      y: settings.timelineY - 120,
+      height: 44,
+      nameSize: 12,
+      datesSize: 10,
+      nameBold: true,
+      datesBold: false
+    };
+    ensureArtistBoxFitsText(a);
+    artists.push(a);
+  }
+
+  closeModals();
+  render();
+  saveToLocalStorageSilent();
+}
+
+// -------------------- Actions utilitaires --------------------
 function centerOnYearZero() {
-    const zeroX = yearToX(0);
-    viewOffset.x = (window.innerWidth / 2) - zeroX;
-    viewOffset.y = 0;
-    updateViewOffset();
+  const zeroX = yearToX(0);
+  viewOffset.x = (window.innerWidth / 2) - zeroX;
+  viewOffset.y = 0;
+  updateViewOffset();
 }
 
 function applyBackgroundColor() {
-    const newColor = document.getElementById('bgColor').value;
-    settings.bgColor = newColor;
-    applyBackgroundToContainer();
-    render();
-    saveToLocalStorageSilent();
+  settings.bgColor = document.getElementById('bgColor').value;
+  applyBackgroundToContainer();
+  render();
+  saveToLocalStorageSilent();
 }
 
-// Sauvegarde / Chargement fichier
+// -------------------- Sauvegarde fichier --------------------
 function saveToFile() {
-    try {
-        const data = { events, periods, artists, settings, version: '1.0' };
+  try {
+    const data = { events, periods, artists, settings, version: '2.0' };
+    const str = JSON.stringify(data, null, 2);
+    const blob = new Blob([str], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
 
-        const dataStr = JSON.stringify(data, null, 2);
-        const blob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `frise-chronologique-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-        const link = document.createElement('a');
-        link.href = url;
-        const filename = `frise-chronologique-${new Date().getTime()}.json`;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-
-        alert('Sauvegarde téléchargée ! 💾');
-    } catch (error) {
-        console.error('Save error:', error);
-        alert('Erreur lors de la sauvegarde : ' + error.message);
-    }
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  } catch (err) {
+    alert('Erreur sauvegarde : ' + err.message);
+  }
 }
 
 function loadFromFile(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+  const file = event.target.files[0];
+  if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = JSON.parse(e.target.result);
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
 
-            events = data.events || [];
-            periods = data.periods || [];
-            artists = data.artists || [];
+      events = data.events || [];
+      periods = data.periods || [];
+      artists = data.artists || [];
 
-            // fusion settings (robuste)
-            if (data.settings) {
-                settings = { ...settings, ...data.settings };
+      if (data.settings) settings = { ...settings, ...data.settings };
 
-                document.getElementById('startYear').value = settings.startYear;
-                document.getElementById('endYear').value = settings.endYear;
-                document.getElementById('scale').value = settings.scale;
-                document.getElementById('timelineY').value = settings.timelineY;
-                document.getElementById('timelineThickness').value = settings.timelineThickness || 40;
-                document.getElementById('zoomLevel').value = settings.zoom;
-                document.getElementById('pagesH').value = settings.pagesH || 3;
-                document.getElementById('pagesV').value = settings.pagesV || 2;
-                document.getElementById('bgColor').value = settings.bgColor || '#ffffff';
-                document.getElementById('showGrid').checked = settings.showGrid !== undefined ? settings.showGrid : true;
-            }
+      // sync UI
+      document.getElementById('startYear').value = settings.startYear;
+      document.getElementById('endYear').value = settings.endYear;
+      document.getElementById('scale').value = settings.scale;
+      document.getElementById('timelineY').value = settings.timelineY;
+      document.getElementById('timelineThickness').value = settings.timelineThickness;
+      document.getElementById('zoomLevel').value = settings.zoom;
+      document.getElementById('pagesH').value = settings.pagesH;
+      document.getElementById('pagesV').value = settings.pagesV;
+      document.getElementById('bgColor').value = settings.bgColor;
+      document.getElementById('showGrid').checked = !!settings.showGrid;
 
-            resizeCanvas();
-            render();
-            saveToLocalStorageSilent();
-            alert('Sauvegarde chargée avec succès ! 📂');
-        } catch (error) {
-            alert('Erreur lors du chargement du fichier : ' + error.message);
-        }
-    };
-    reader.readAsText(file);
+      resizeCanvas();
+      applyBackgroundToContainer();
+      render();
+      saveToLocalStorageSilent();
+    } catch (err) {
+      alert('Erreur chargement : ' + err.message);
+    }
+  };
+  reader.readAsText(file);
 
-    event.target.value = '';
+  event.target.value = '';
 }
 
-// Sauvegarde / Chargement localStorage
+// -------------------- localStorage --------------------
 function saveToLocalStorage() {
-    const data = { events, periods, artists, settings };
-    localStorage.setItem('timelineData', JSON.stringify(data));
-    alert('Sauvegarde réussie dans le navigateur ! 💾');
+  localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
+  alert('Sauvegarde réussie dans le navigateur.');
 }
 
 function saveToLocalStorageSilent() {
-    try {
-        localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
-    } catch (e) {
-        console.warn('localStorage save failed', e);
-    }
+  try {
+    localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
+  } catch (e) {
+    // silencieux
+  }
 }
 
 function loadFromLocalStorage() {
-    const data = localStorage.getItem('timelineData');
-    if (data) {
-        const parsed = JSON.parse(data);
-        events = parsed.events || [];
-        periods = parsed.periods || [];
-        artists = parsed.artists || [];
+  const raw = localStorage.getItem('timelineData');
+  if (!raw) return;
 
-        if (parsed.settings) {
-            settings = { ...settings, ...parsed.settings };
+  try {
+    const parsed = JSON.parse(raw);
+    events = parsed.events || [];
+    periods = parsed.periods || [];
+    artists = parsed.artists || [];
+    if (parsed.settings) settings = { ...settings, ...parsed.settings };
 
-            document.getElementById('startYear').value = settings.startYear;
-            document.getElementById('endYear').value = settings.endYear;
-            document.getElementById('scale').value = settings.scale;
-            document.getElementById('timelineY').value = settings.timelineY;
-            document.getElementById('timelineThickness').value = settings.timelineThickness || 40;
-            document.getElementById('zoomLevel').value = settings.zoom;
-            document.getElementById('pagesH').value = settings.pagesH || 3;
-            document.getElementById('pagesV').value = settings.pagesV || 2;
-            document.getElementById('bgColor').value = settings.bgColor || '#ffffff';
-            document.getElementById('showGrid').checked = settings.showGrid !== undefined ? settings.showGrid : true;
-        }
+    document.getElementById('startYear').value = settings.startYear;
+    document.getElementById('endYear').value = settings.endYear;
+    document.getElementById('scale').value = settings.scale;
+    document.getElementById('timelineY').value = settings.timelineY;
+    document.getElementById('timelineThickness').value = settings.timelineThickness;
+    document.getElementById('zoomLevel').value = settings.zoom;
+    document.getElementById('pagesH').value = settings.pagesH;
+    document.getElementById('pagesV').value = settings.pagesV;
+    document.getElementById('bgColor').value = settings.bgColor;
+    document.getElementById('showGrid').checked = !!settings.showGrid;
 
-        resizeCanvas();
-        render();
-    }
+    resizeCanvas();
+    applyBackgroundToContainer();
+    render();
+  } catch (e) {
+    // silencieux
+  }
 }
 
-// Démarrage
+// -------------------- Sécurité HTML --------------------
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+// -------------------- Démarrage --------------------
 window.addEventListener('load', init);
-window.addEventListener('resize', () => {
-    resizeCanvas();
-    render();
-});
+window.addEventListener('resize', () => { resizeCanvas(); render(); });
