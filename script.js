@@ -98,8 +98,19 @@ function setupEventListeners() {
         render();
     });
     document.getElementById('bgColor').addEventListener('input', (e) => {
-        // Ne fait rien au changement, attend le clic sur "Appliquer"
+    settings.bgColor = e.target.value;
+    render();
+    // option : autosave navigateur
+    saveToLocalStorageSilent();
     });
+    function saveToLocalStorageSilent() {
+    const data = { events, periods, artists, settings };
+    try {
+        localStorage.setItem('timelineData', JSON.stringify(data));
+    } catch (e) {
+        // on ne bloque pas l'UI si localStorage échoue
+        console.warn('localStorage save failed', e);
+    }
     document.getElementById('showGrid').addEventListener('change', (e) => {
         settings.showGrid = e.target.checked;
         render();
@@ -254,23 +265,42 @@ function render() {
 }
 
 function drawGrid() {
-    const gridSize = 37.8; // Approximativement 1cm à 96dpi
-    ctx.strokeStyle = '#cccccc';
+    // 1 cm en CSS pixels (approx). Vous aviez 37.8, je garde ce repère.
+    const gridSize = 37.8;
+
+    ctx.save();
+    ctx.strokeStyle = '#d0d0d0';
     ctx.lineWidth = 1;
-    
+
+    // Lignes fines
     ctx.beginPath();
-    // Lignes verticales
     for (let x = 0; x <= canvas.width; x += gridSize) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.moveTo(x + 0.5, 0);
+        ctx.lineTo(x + 0.5, canvas.height);
     }
-    
-    // Lignes horizontales
     for (let y = 0; y <= canvas.height; y += gridSize) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(canvas.width, y + 0.5);
     }
     ctx.stroke();
+
+    // Lignes “majeures” tous les 5 carreaux (facultatif mais utile visuellement)
+    ctx.strokeStyle = '#b0b0b0';
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+    const major = gridSize * 5;
+    for (let x = 0; x <= canvas.width; x += major) {
+        ctx.moveTo(x + 0.5, 0);
+        ctx.lineTo(x + 0.5, canvas.height);
+    }
+    for (let y = 0; y <= canvas.height; y += major) {
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(canvas.width, y + 0.5);
+    }
+    ctx.stroke();
+
+    ctx.restore();
 }
 
 function drawTimeline() {
@@ -514,7 +544,7 @@ function startDragEvent(e, event) {
     draggedItem = {
         item: event,
         type: 'event',
-        startY: e.clientY - event.y
+        startY: e.clientY - (event.y * settings.zoom)
     };
 }
 
@@ -550,7 +580,7 @@ function startResizeEvent(e, event) {
 function handleItemDrag(e) {
     if (!draggedItem) return;
     
-    const newY = e.clientY - draggedItem.startY;
+    const newY = (e.clientY - draggedItem.startY) / settings.zoom;
     
     if (draggedItem.type === 'event') {
         const event = events.find(ev => ev.id === draggedItem.item.id);
