@@ -117,8 +117,12 @@ function expandCanvasUpIfNeeded(neededTopY) {
 
   updateViewOffset();
 }
-
-
+function syncTimelineYMax() {
+  const slider = document.getElementById('timelineY');
+  if (!slider) return;
+  // 4x la hauteur d'une page verticale (800) * pagesV
+  slider.max = String(settings.pagesV * 800 * 4);
+}
 function setupEventListeners() {
   // Menu
   document.getElementById('toggleMenu').addEventListener('click', () => {
@@ -1182,3 +1186,14 @@ function escapeHtml(str) {
 // -------------------- Démarrage --------------------
 window.addEventListener('load', init);
 window.addEventListener('resize', () => { resizeCanvas(); render(); });
+function resizeCanvas() {
+  const canvasWidth = settings.pagesH * 1400;
+  const canvasHeight = settings.pagesV * 800;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  eventsContainer.style.width = canvasWidth + 'px';
+  eventsContainer.style.height = canvasHeight + 'px';
+
+  syncTimelineYMax();
+}
+
