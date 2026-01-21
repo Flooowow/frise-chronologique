@@ -324,10 +324,40 @@ function drawPeriods() {
         div.style.height = period.height + 'px';
         div.style.background = period.color;
 
-        div.innerHTML = `
-            <div class="period-name">${period.name}</div>
-            <div class="period-dates">${period.startYear} - ${period.endYear}</div>
-        `;
+        const nameSize = period.nameSize || 13;
+const datesSize = period.datesSize || 11;
+const nameBold = period.nameBold !== undefined ? period.nameBold : true;
+const datesBold = period.datesBold !== undefined ? period.datesBold : false;
+const textOffsetY = period.textOffsetY || 0;
+
+div.innerHTML = `
+  <div class="period-name selectable-text"
+       data-owner="period" data-id="${period.id}" data-text="name"
+       style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; transform: translateY(${textOffsetY}px);">
+       ${period.name}
+  </div>
+  <div class="period-dates selectable-text"
+       data-owner="period" data-id="${period.id}" data-text="dates"
+       style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; transform: translateY(${textOffsetY}px);">
+       ${period.startYear} - ${period.endYear}
+  </div>
+`;
+        div.querySelectorAll('.selectable-text').forEach(el => {
+    el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectGenericTextElement(el);
+    });
+    el.addEventListener('mousedown', (e) => {
+        // drag vertical du texte seulement
+        if (selectedTextElement && selectedTextElement.element === el) {
+            e.stopPropagation();
+            const p = periods.find(x => x.id === period.id);
+            if (!p) return;
+            const m = getMouseWorldPos(e);
+            draggedItem = { type: 'periodText', item: p, baseY: m.y - (p.textOffsetY || 0) };
+        }
+    });
+});
 
         div.addEventListener('mousedown', (e) => startDragPeriod(e, period));
         div.addEventListener('click', (e) => {
@@ -354,12 +384,44 @@ function drawArtists() {
         div.style.top = artist.y + 'px';
         div.style.width = width + 'px';
 
-        div.innerHTML = `
-            <div class="artist-marker" style="left: 0;"></div>
-            <div class="artist-marker" style="left: ${width - 10}px;"></div>
-            <div class="artist-name">${artist.name}</div>
-            <div class="artist-dates">${artist.birthYear} à ${artist.deathYear}</div>
-        `;
+       const nameSize = artist.nameSize || 12;
+const datesSize = artist.datesSize || 10;
+const nameBold = artist.nameBold !== undefined ? artist.nameBold : true;
+const datesBold = artist.datesBold !== undefined ? artist.datesBold : false;
+const textOffsetY = artist.textOffsetY || 0;
+
+div.innerHTML = `
+  <div class="artist-marker" style="left: 0;"></div>
+  <div class="artist-marker" style="left: ${width - 10}px;"></div>
+
+  <div class="artist-name selectable-text"
+       data-owner="artist" data-id="${artist.id}" data-text="name"
+       style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; transform: translate(-50%, ${textOffsetY}px);">
+       ${artist.name}
+  </div>
+
+  <div class="artist-dates selectable-text"
+       data-owner="artist" data-id="${artist.id}" data-text="dates"
+       style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; transform: translate(-50%, ${textOffsetY}px);">
+       ${artist.birthYear} à ${artist.deathYear}
+  </div>
+`;
+        
+div.querySelectorAll('.selectable-text').forEach(el => {
+    el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectGenericTextElement(el);
+    });
+    el.addEventListener('mousedown', (e) => {
+        if (selectedTextElement && selectedTextElement.element === el) {
+            e.stopPropagation();
+            const a = artists.find(x => x.id === artist.id);
+            if (!a) return;
+            const m = getMouseWorldPos(e);
+            draggedItem = { type: 'artistText', item: a, baseY: m.y - (a.textOffsetY || 0) };
+        }
+    });
+});
 
         div.addEventListener('mousedown', (e) => startDragArtist(e, artist));
         div.addEventListener('click', (e) => {
@@ -483,6 +545,45 @@ function selectTextElement(event, textType, element) {
         document.getElementById('selectedTextBold').checked = bold;
     }
 }
+
+function selectGenericTextElement(domEl) {
+    // nettoyer ancienne sélection
+    if (selectedTextElement?.element) {
+        selectedTextElement.element.classList.remove('selected-text');
+    }
+
+    const owner = domEl.dataset.owner; // "event" / "period" / "artist"
+    const id = parseInt(domEl.dataset.id);
+    const textKey = domEl.dataset.text; // "title/year/name/dates"
+
+    let obj = null;
+    if (owner === 'period') obj = periods.find(x => x.id === id);
+    if (owner === 'artist') obj = artists.find(x => x.id === id);
+
+    if (!obj) return;
+
+    selectedTextElement = { owner, obj, textKey, element: domEl };
+    domEl.classList.add('selected-text');
+
+    document.getElementById('textStyleTools').style.display = 'block';
+
+    // charger valeurs dans l'UI
+    let size = 12;
+    let bold = false;
+
+    if (owner === 'period') {
+        size = (textKey === 'name') ? (obj.nameSize || 13) : (obj.datesSize || 11);
+        bold = (textKey === 'name') ? (obj.nameBold ?? true) : (obj.datesBold ?? false);
+    } else if (owner === 'artist') {
+        size = (textKey === 'name') ? (obj.nameSize || 12) : (obj.datesSize || 10);
+        bold = (textKey === 'name') ? (obj.nameBold ?? true) : (obj.datesBold ?? false);
+    }
+
+    document.getElementById('selectedTextSize').value = size;
+    document.getElementById('selectedTextSizeValue').textContent = size + 'px';
+    document.getElementById('selectedTextBold').checked = bold;
+}
+
 
 // Drag & Drop handlers
 function startDragEvent(e, event) {
