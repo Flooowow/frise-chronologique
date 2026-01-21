@@ -380,3 +380,20 @@ body {
     flex: 1;
     margin: 0;
 }
+.event-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.event-card img {
+  flex: 1 1 auto;
+  min-height: 40px;
+}
+
+.event-card .event-title,
+.event-card .event-year {
+  line-height: 1.1;
+  word-break: break-word;
+  overflow: hidden;
+}
+
