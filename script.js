@@ -68,6 +68,57 @@ function resizeCanvas() {
   eventsContainer.style.height = canvasHeight + 'px';
 }
 
+// --- "Infini" vertical : on agrandit la zone de travail automatiquement ---
+const VERTICAL_MARGIN = 200;     // marge de confort avant d'agrandir
+const GROW_CHUNK = 800;          // combien on agrandit par "palier" (px)
+
+function expandCanvasDownIfNeeded(neededBottomY) {
+  // neededBottomY = position bas de l'élément (y + height)
+  if (neededBottomY <= canvas.height - VERTICAL_MARGIN) return;
+
+  const missing = neededBottomY - (canvas.height - VERTICAL_MARGIN);
+  const growBy = Math.ceil(missing / GROW_CHUNK) * GROW_CHUNK;
+
+  canvas.height += growBy;
+  eventsContainer.style.height = canvas.height + 'px';
+
+  // Optionnel : si votre timelineY max dans le slider dépend de la hauteur,
+  // vous pouvez ajuster la valeur max ici si vous le souhaitez.
+}
+
+function expandCanvasUpIfNeeded(neededTopY) {
+  // neededTopY = position haut de l'élément
+  if (neededTopY >= VERTICAL_MARGIN) return;
+
+  const missing = VERTICAL_MARGIN - neededTopY;
+  const growBy = Math.ceil(missing / GROW_CHUNK) * GROW_CHUNK;
+
+  // On agrandit vers le haut : on "pousse" tout vers le bas
+  canvas.height += growBy;
+  eventsContainer.style.height = canvas.height + 'px';
+
+  // Décaler toutes les données vers le bas
+  for (const ev of events) ev.y += growBy;
+  for (const p of periods) p.y += growBy;
+  for (const a of artists) a.y += growBy;
+
+  // Décaler la frise aussi (sinon elle remonte visuellement)
+  settings.timelineY += growBy;
+
+  // IMPORTANT : compenser la vue pour éviter que tout "saute" à l'écran
+  // (on ramène la caméra vers le haut d'autant)
+  viewOffset.y -= growBy * settings.zoom;
+
+  // Mettre à jour le slider pour qu'il suive
+  const timelineYInput = document.getElementById('timelineY');
+  if (timelineYInput) {
+    timelineYInput.value = settings.timelineY;
+  }
+
+  updateViewOffset();
+}
+
+
 function setupEventListeners() {
   // Menu
   document.getElementById('toggleMenu').addEventListener('click', () => {
@@ -644,31 +695,48 @@ function drawArtists() {
 function handleDrag(e) {
   const m = getMouseWorldPos(e);
 
+  // --- EVENT ---
   if (draggedItem.type === 'event') {
     const ev = draggedItem.item;
-    ev.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - ev.height);
+    const newY = (m.y - draggedItem.offsetY);
+
+    // "Infini" : on agrandit si besoin AVANT d'appliquer
+    expandCanvasUpIfNeeded(newY);
+    expandCanvasDownIfNeeded(newY + ev.height);
+
+    ev.y = newY;
     render(); saveToLocalStorageSilent();
     return;
   }
 
+  // --- PERIOD ---
   if (draggedItem.type === 'period') {
     const p = draggedItem.item;
     const h = p.height || 40;
-    p.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - h);
+    const newY = (m.y - draggedItem.offsetY);
+
+    expandCanvasUpIfNeeded(newY);
+    expandCanvasDownIfNeeded(newY + h);
+
+    p.y = newY;
     render(); saveToLocalStorageSilent();
     return;
   }
 
+  // --- ARTIST ---
   if (draggedItem.type === 'artist') {
     const a = draggedItem.item;
-    a.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - (a.height || 36));
+    const h = a.height || 36;
+    const newY = (m.y - draggedItem.offsetY);
+
+    expandCanvasUpIfNeeded(newY);
+    expandCanvasDownIfNeeded(newY + h);
+
+    a.y = newY;
     render(); saveToLocalStorageSilent();
     return;
   }
 }
-
-function handleResize(e) {
-  const m = getMouseWorldPos(e);
 
   // Events
   if (resizingItem.type === 'eventW') {
