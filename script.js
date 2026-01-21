@@ -34,7 +34,12 @@ function init() {
     resizeCanvas();
     setupEventListeners();
     loadFromLocalStorage();
-    render();
+    
+    // Forcer le premier rendu
+    setTimeout(() => {
+        render();
+        console.log('Timeline initialized');
+    }, 100);
 }
 
 function resizeCanvas() {
@@ -44,6 +49,7 @@ function resizeCanvas() {
     canvas.height = canvasHeight;
     eventsContainer.style.width = canvasWidth + 'px';
     eventsContainer.style.height = canvasHeight + 'px';
+    console.log('Canvas resized:', canvasWidth, 'x', canvasHeight);
 }
 
 function setupEventListeners() {
@@ -213,19 +219,27 @@ function xToYear(x) {
 
 // Render la frise
 function render() {
+    console.log('Rendering timeline...');
+    console.log('Canvas size:', canvas.width, 'x', canvas.height);
+    console.log('Settings:', settings);
+    
+    // Effacer tout
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     // Dessiner le fond
     ctx.fillStyle = settings.bgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    console.log('Background drawn with color:', settings.bgColor);
     
     // Dessiner le quadrillage
     if (settings.showGrid) {
         drawGrid();
+        console.log('Grid drawn');
     }
     
     // Dessiner la ligne de temps principale
     drawTimeline();
+    console.log('Timeline drawn');
     
     // Dessiner les périodes
     drawPeriods();
@@ -241,24 +255,22 @@ function render() {
 
 function drawGrid() {
     const gridSize = 37.8; // Approximativement 1cm à 96dpi
-    ctx.strokeStyle = '#d1d5db';
-    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 1;
     
+    ctx.beginPath();
     // Lignes verticales
     for (let x = 0; x <= canvas.width; x += gridSize) {
-        ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, canvas.height);
-        ctx.stroke();
     }
     
     // Lignes horizontales
     for (let y = 0; y <= canvas.height; y += gridSize) {
-        ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(canvas.width, y);
-        ctx.stroke();
     }
+    ctx.stroke();
 }
 
 function drawTimeline() {
@@ -266,13 +278,15 @@ function drawTimeline() {
     const thickness = settings.timelineThickness;
     const halfThickness = thickness / 2;
     
-    // Barre principale avec fond blanc et contour noir épais
+    console.log('Drawing timeline at Y:', y, 'with thickness:', thickness);
+    
+    // Barre principale avec fond blanc
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, y - halfThickness, canvas.width, thickness);
     
     // Contour noir épais
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 5;
     ctx.strokeRect(0, y - halfThickness, canvas.width, thickness);
     
     // Graduations noires
@@ -284,6 +298,7 @@ function drawTimeline() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
+    let gradCount = 0;
     for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
         const x = yearToX(year);
         
@@ -295,7 +310,10 @@ function drawTimeline() {
         
         // Année en noir
         ctx.fillText(year.toString(), x, y);
+        gradCount++;
     }
+    
+    console.log('Drew', gradCount, 'graduations');
 }
 
 function drawPeriods() {
@@ -367,9 +385,16 @@ function drawEvents() {
     const existingEvents = document.querySelectorAll('.event-card');
     existingEvents.forEach(el => el.remove());
     
+    const existingLines = document.querySelectorAll('.connection-line');
+    existingLines.forEach(el => el.remove());
+    
     events.forEach(event => {
         const x = yearToX(parseInt(event.year));
-        const eventAboveTimeline = event.y < settings.timelineY;
+        const halfThickness = settings.timelineThickness / 2;
+        const timelineTop = settings.timelineY - halfThickness;
+        const timelineBottom = settings.timelineY + halfThickness;
+        const eventBottom = event.y + event.height;
+        const eventAboveTimeline = eventBottom < timelineTop;
         
         const card = document.createElement('div');
         card.className = 'event-card' + (selectedItem?.id === event.id ? ' selected' : '');
@@ -391,27 +416,28 @@ function drawEvents() {
             <div class="resize-corner"></div>
         `;
         
-        // Ligne de connexion - détecte si au-dessus ou en-dessous
+        // Ligne de connexion - calcul correct selon position
         const lineDiv = document.createElement('div');
         lineDiv.className = 'connection-line';
-        const halfThickness = settings.timelineThickness / 2;
         
         if (eventAboveTimeline) {
-            // Événement au-dessus de la frise
-            lineDiv.style.left = x + 'px';
-            lineDiv.style.top = (event.y + event.height) + 'px';
-            const lineHeight = (settings.timelineY - halfThickness) - (event.y + event.height);
-            lineDiv.style.height = Math.max(0, lineHeight) + 'px';
+            // Événement AU-DESSUS de la frise
+            const lineHeight = timelineTop - eventBottom;
+            if (lineHeight > 0) {
+                lineDiv.style.left = x + 'px';
+                lineDiv.style.top = eventBottom + 'px';
+                lineDiv.style.height = lineHeight + 'px';
+                eventsContainer.appendChild(lineDiv);
+            }
         } else {
-            // Événement en-dessous de la frise
-            lineDiv.style.left = x + 'px';
-            lineDiv.style.top = (settings.timelineY + halfThickness) + 'px';
-            const lineHeight = event.y - (settings.timelineY + halfThickness);
-            lineDiv.style.height = Math.max(0, lineHeight) + 'px';
-        }
-        
-        if (lineDiv.style.height !== '0px') {
-            eventsContainer.appendChild(lineDiv);
+            // Événement EN-DESSOUS de la frise
+            const lineHeight = event.y - timelineBottom;
+            if (lineHeight > 0) {
+                lineDiv.style.left = x + 'px';
+                lineDiv.style.top = timelineBottom + 'px';
+                lineDiv.style.height = lineHeight + 'px';
+                eventsContainer.appendChild(lineDiv);
+            }
         }
         
         card.addEventListener('mousedown', (e) => {
@@ -761,31 +787,43 @@ function centerOnYearZero() {
 }
 
 function applyBackgroundColor() {
-    settings.bgColor = document.getElementById('bgColor').value;
+    const newColor = document.getElementById('bgColor').value;
+    settings.bgColor = newColor;
+    console.log('Background color applied:', newColor);
     render();
 }
 
 // Sauvegarde / Chargement fichier
 function saveToFile() {
-    const data = {
-        events,
-        periods,
-        artists,
-        settings,
-        version: '1.0'
-    };
-    
-    const dataStr = JSON.stringify(data, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `frise-chronologique-${Date.now()}.json`;
-    link.click();
-    
-    URL.revokeObjectURL(url);
-    alert('Sauvegarde téléchargée ! 💾');
+    try {
+        const data = {
+            events,
+            periods,
+            artists,
+            settings,
+            version: '1.0'
+        };
+        
+        const dataStr = JSON.stringify(data, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        const filename = `frise-chronologique-${new Date().getTime()}.json`;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        
+        console.log('File saved:', filename);
+        alert('Sauvegarde téléchargée ! 💾');
+    } catch (error) {
+        console.error('Save error:', error);
+        alert('Erreur lors de la sauvegarde : ' + error.message);
+    }
 }
 
 function loadFromFile(event) {
