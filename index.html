@@ -57,6 +57,7 @@
             <div class="form-group">
                 <label>Couleur du fond</label>
                 <input type="color" id="bgColor" value="#ffffff">
+                <button class="btn btn-secondary" onclick="applyBackgroundColor()" style="margin-top: 5px;">Appliquer</button>
             </div>
             
             <div class="form-group">
@@ -69,6 +70,13 @@
             <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
             <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
             <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
+            
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
+            
+            <h3>Sauvegarde</h3>
+            <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
+            <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadFromFile(event)">
+            <button class="btn btn-secondary" onclick="document.getElementById('loadFile').click()">📂 Charger sauvegarde</button>
             
             <div id="textStyleTools" style="display: none; margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px;">
                 <h3 style="margin-bottom: 10px;">Texte sélectionné</h3>
@@ -90,8 +98,8 @@
                 <button class="btn btn-danger" onclick="deleteSelectedItem()">🗑️ Supprimer</button>
             </div>
             
-            <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder</button>
-            <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger</button>
+            <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder (navigateur)</button>
+            <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger (navigateur)</button>
         </div>
     </div>
 
