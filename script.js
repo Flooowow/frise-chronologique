@@ -304,6 +304,30 @@ function drawTimeline() {
         ctx.stroke();
 
         ctx.fillText(year.toString(), x, y);
+        
+        // Petites graduations entre les grandes (10 subdivisions)
+const minorDiv = 10;
+const minorStep = Math.max(1, Math.round(settings.scale / minorDiv));
+
+ctx.strokeStyle = '#000000';
+ctx.lineWidth = 1;
+
+for (let year = settings.startYear; year <= settings.endYear; year += minorStep) {
+    if ((year - settings.startYear) % settings.scale === 0) continue; // skip grandes
+    const x = yearToX(year);
+
+    // tick plus court
+    ctx.beginPath();
+    ctx.moveTo(x, y - halfThickness);
+    ctx.lineTo(x, y - halfThickness + (thickness * 0.35));
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x, y + halfThickness);
+    ctx.lineTo(x, y + halfThickness - (thickness * 0.35));
+    ctx.stroke();
+}
+
     }
 }
 
