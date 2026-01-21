@@ -1,163 +1,168 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Frise Chronologique Interactive</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frise Chronologique Interactive</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <!-- Menu latéral -->
-    <div id="sidebar" class="sidebar">
-        <button id="toggleMenu" class="toggle-btn">◀</button>
-        
-        <div class="sidebar-content">
-            <h2>Paramètres de la frise</h2>
-            
-            <div class="form-group">
-                <label>Année début</label>
-                <input type="number" id="startYear" value="-500">
-            </div>
-            
-            <div class="form-group">
-                <label>Année fin</label>
-                <input type="number" id="endYear" value="2000">
-            </div>
-            
-            <div class="form-group">
-                <label>Échelle (graduation)</label>
-                <input type="number" id="scale" value="50">
-            </div>
-            
-            <div class="form-group">
-                <label>Pages horizontales</label>
-                <input type="number" id="pagesH" min="1" max="10" value="3">
-            </div>
-            
-            <div class="form-group">
-                <label>Pages verticales</label>
-                <input type="number" id="pagesV" min="1" max="10" value="2">
-            </div>
-            
-            <div class="form-group">
-                <label>Épaisseur de la frise</label>
-                <input type="range" id="timelineThickness" min="20" max="80" value="40">
-            </div>
-            
-            <div class="form-group">
-                <label>Position frise (Y)</label>
-                <input type="range" id="timelineY" min="50" max="600" value="300">
-            </div>
-            
-            <div class="form-group">
-                <label>Zoom</label>
-                <input type="range" id="zoomLevel" min="0.5" max="3" step="0.1" value="1">
-            </div>
-            
-            <div class="form-group">
-                <label>Couleur du fond</label>
-                <input type="color" id="bgColor" value="#ffffff">
-                <button class="btn btn-secondary" onclick="applyBackgroundColor()" style="margin-top: 5px;">Appliquer</button>
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="showGrid" checked> Afficher le quadrillage
-                </label>
-            </div>
-            
-            <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
-            <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
-            <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
-            <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
-            
-            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;">
-            
-            <h3>Sauvegarde</h3>
-            <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
-            <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadFromFile(event)">
-            <button class="btn btn-secondary" onclick="document.getElementById('loadFile').click()">📂 Charger sauvegarde</button>
-            
-            <div id="textStyleTools" style="display: none; margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px;">
-                <h3 style="margin-bottom: 10px;">Texte sélectionné</h3>
-                <div class="form-group">
-                    <label>Taille</label>
-                    <input type="range" id="selectedTextSize" min="8" max="24" value="12">
-                    <span id="selectedTextSizeValue">12px</span>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="selectedTextBold"> Gras
-                    </label>
-                </div>
-            </div>
-            
-            <div id="selectedItemActions" style="display: none;">
-                <h3>Élément sélectionné</h3>
-                <button class="btn btn-warning" onclick="editSelectedItem()">✏️ Modifier</button>
-                <button class="btn btn-danger" onclick="deleteSelectedItem()">🗑️ Supprimer</button>
-            </div>
-            
-            <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder (navigateur)</button>
-            <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger (navigateur)</button>
+  <!-- Menu latéral -->
+  <div id="sidebar" class="sidebar">
+    <button id="toggleMenu" class="toggle-btn">◀</button>
+
+    <div class="sidebar-content">
+      <h2>Paramètres de la frise</h2>
+
+      <div class="form-group">
+        <label>Année début</label>
+        <input type="number" id="startYear" value="-500" />
+      </div>
+
+      <div class="form-group">
+        <label>Année fin</label>
+        <input type="number" id="endYear" value="2000" />
+      </div>
+
+      <div class="form-group">
+        <label>Échelle (graduation)</label>
+        <input type="number" id="scale" value="50" />
+      </div>
+
+      <div class="form-group">
+        <label>Pages horizontales</label>
+        <input type="number" id="pagesH" min="1" max="10" value="3" />
+      </div>
+
+      <div class="form-group">
+        <label>Pages verticales</label>
+        <input type="number" id="pagesV" min="1" max="10" value="2" />
+      </div>
+
+      <div class="form-group">
+        <label>Épaisseur de la frise</label>
+        <input type="range" id="timelineThickness" min="20" max="80" value="40" />
+      </div>
+
+      <div class="form-group">
+        <label>Position frise (Y)</label>
+        <input type="range" id="timelineY" min="50" max="600" value="300" />
+      </div>
+
+      <div class="form-group">
+        <label>Zoom</label>
+        <input type="range" id="zoomLevel" min="0.5" max="3" step="0.1" value="1" />
+      </div>
+
+      <div class="form-group">
+        <label>Couleur du fond</label>
+        <input type="color" id="bgColor" value="#ffffff" />
+        <button class="btn btn-secondary" onclick="applyBackgroundColor()" style="margin-top: 5px;">
+          Appliquer
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="showGrid" checked />
+          Afficher le quadrillage
+        </label>
+      </div>
+
+      <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
+      <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
+      <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
+      <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
+
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+      <h3>Sauvegarde</h3>
+      <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
+      <input type="file" id="loadFile" accept=".json" style="display:none;" onchange="loadFromFile(event)" />
+      <button class="btn btn-secondary" onclick="document.getElementById('loadFile').click()">📂 Charger sauvegarde</button>
+
+      <!-- Outils de style (événements + périodes + artistes) -->
+      <div id="textStyleTools" style="display:none; margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 8px;">
+        <h3 style="margin-bottom: 10px;">Texte sélectionné</h3>
+        <div class="form-group">
+          <label>Taille</label>
+          <input type="range" id="selectedTextSize" min="8" max="30" value="12" />
+          <span id="selectedTextSizeValue">12px</span>
         </div>
-    </div>
-
-    <!-- Zone de canvas -->
-    <div id="canvasContainer" class="canvas-container">
-        <canvas id="timeline"></canvas>
-        <div id="eventsContainer"></div>
-    </div>
-
-    <!-- Modal Événement -->
-    <div id="eventModal" class="modal">
-        <div class="modal-content">
-            <h3 id="eventModalTitle">Ajouter un événement</h3>
-            <input type="text" id="eventName" placeholder="Nom de l'œuvre">
-            <input type="number" id="eventYear" placeholder="Année">
-            <input type="file" id="eventImage" accept="image/*">
-            <img id="eventPreview" style="display:none; max-width: 100%; max-height: 150px;">
-            <div class="modal-buttons">
-                <button class="btn btn-blue" onclick="saveEvent()">Ajouter</button>
-                <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
-            </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="selectedTextBold" />
+            Gras
+          </label>
         </div>
-    </div>
+      </div>
 
-    <!-- Modal Période -->
-    <div id="periodModal" class="modal">
-        <div class="modal-content">
-            <h3 id="periodModalTitle">Ajouter une période</h3>
-            <input type="text" id="periodName" placeholder="Nom de la période">
-            <input type="number" id="periodStart" placeholder="Année début">
-            <input type="number" id="periodEnd" placeholder="Année fin">
-            <input type="color" id="periodColor" value="#4299e1">
-            <div class="form-group">
-                <label>Épaisseur de la barre</label>
-                <input type="range" id="periodHeight" min="20" max="100" value="40">
-                <span id="periodHeightValue">40px</span>
-            </div>
-            <div class="modal-buttons">
-                <button class="btn btn-purple" onclick="savePeriod()">Ajouter</button>
-                <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
-            </div>
-        </div>
-    </div>
+      <div id="selectedItemActions" style="display:none;">
+        <h3>Élément sélectionné</h3>
+        <button class="btn btn-warning" onclick="editSelectedItem()">✏️ Modifier</button>
+        <button class="btn btn-danger" onclick="deleteSelectedItem()">🗑️ Supprimer</button>
+      </div>
 
-    <!-- Modal Artiste -->
-    <div id="artistModal" class="modal">
-        <div class="modal-content">
-            <h3 id="artistModalTitle">Ajouter un artiste</h3>
-            <input type="text" id="artistName" placeholder="Nom de l'artiste">
-            <input type="number" id="artistBirth" placeholder="Année de naissance">
-            <input type="number" id="artistDeath" placeholder="Année de décès">
-            <div class="modal-buttons">
-                <button class="btn btn-green" onclick="saveArtist()">Ajouter</button>
-                <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
-            </div>
-        </div>
+      <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder (navigateur)</button>
+      <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger (navigateur)</button>
     </div>
+  </div>
 
-    <script src="script.js"></script>
+  <!-- Zone canvas -->
+  <div id="canvasContainer" class="canvas-container">
+    <canvas id="timeline"></canvas>
+    <div id="eventsContainer"></div>
+  </div>
+
+  <!-- Modal Événement -->
+  <div id="eventModal" class="modal">
+    <div class="modal-content">
+      <h3 id="eventModalTitle">Ajouter un événement</h3>
+      <input type="text" id="eventName" placeholder="Nom de l'œuvre" />
+      <input type="number" id="eventYear" placeholder="Année" />
+      <input type="file" id="eventImage" accept="image/*" />
+      <img id="eventPreview" style="display:none; max-width: 100%; max-height: 150px;" />
+      <div class="modal-buttons">
+        <button class="btn btn-blue" onclick="saveEvent()">Ajouter</button>
+        <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Période -->
+  <div id="periodModal" class="modal">
+    <div class="modal-content">
+      <h3 id="periodModalTitle">Ajouter une période</h3>
+      <input type="text" id="periodName" placeholder="Nom de la période" />
+      <input type="number" id="periodStart" placeholder="Année début" />
+      <input type="number" id="periodEnd" placeholder="Année fin" />
+      <input type="color" id="periodColor" value="#4299e1" />
+      <div class="form-group">
+        <label>Épaisseur de la barre</label>
+        <input type="range" id="periodHeight" min="20" max="120" value="40" />
+        <span id="periodHeightValue">40px</span>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-purple" onclick="savePeriod()">Ajouter</button>
+        <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Artiste -->
+  <div id="artistModal" class="modal">
+    <div class="modal-content">
+      <h3 id="artistModalTitle">Ajouter un artiste</h3>
+      <input type="text" id="artistName" placeholder="Nom de l'artiste" />
+      <input type="number" id="artistBirth" placeholder="Année de naissance" />
+      <input type="number" id="artistDeath" placeholder="Année de décès" />
+      <div class="modal-buttons">
+        <button class="btn btn-green" onclick="saveArtist()">Ajouter</button>
+        <button class="btn btn-secondary" onclick="closeModals()">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
