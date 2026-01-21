@@ -34,7 +34,10 @@ function init() {
     resizeCanvas();
     setupEventListeners();
     loadFromLocalStorage();
-    
+
+    // Appliquer immédiatement fond + grille (CSS)
+    applyBackgroundToContainer();
+
     // Forcer le premier rendu
     setTimeout(() => {
         render();
@@ -66,87 +69,95 @@ function setupEventListeners() {
     document.getElementById('startYear').addEventListener('change', (e) => {
         settings.startYear = parseInt(e.target.value);
         render();
+        saveToLocalStorageSilent();
     });
     document.getElementById('endYear').addEventListener('change', (e) => {
         settings.endYear = parseInt(e.target.value);
         render();
+        saveToLocalStorageSilent();
     });
     document.getElementById('scale').addEventListener('change', (e) => {
         settings.scale = parseInt(e.target.value);
         render();
+        saveToLocalStorageSilent();
     });
     document.getElementById('timelineY').addEventListener('input', (e) => {
         settings.timelineY = parseInt(e.target.value);
         render();
+        saveToLocalStorageSilent();
     });
     document.getElementById('zoomLevel').addEventListener('input', (e) => {
         settings.zoom = parseFloat(e.target.value);
         render();
+        saveToLocalStorageSilent();
     });
     document.getElementById('timelineThickness').addEventListener('input', (e) => {
         settings.timelineThickness = parseInt(e.target.value);
         render();
+        saveToLocalStorageSilent();
     });
     document.getElementById('pagesH').addEventListener('change', (e) => {
         settings.pagesH = parseInt(e.target.value);
         resizeCanvas();
         render();
+        saveToLocalStorageSilent();
     });
     document.getElementById('pagesV').addEventListener('change', (e) => {
         settings.pagesV = parseInt(e.target.value);
         resizeCanvas();
         render();
+        saveToLocalStorageSilent();
     });
+
+    // Couleur du fond : appliquer immédiatement
     document.getElementById('bgColor').addEventListener('input', (e) => {
-    settings.bgColor = e.target.value;
-    render();
-    // option : autosave navigateur
-    saveToLocalStorageSilent();
+        settings.bgColor = e.target.value;
+        applyBackgroundToContainer();
+        render();
+        saveToLocalStorageSilent();
     });
-    function saveToLocalStorageSilent() {
-    const data = { events, periods, artists, settings };
-    try {
-        localStorage.setItem('timelineData', JSON.stringify(data));
-    } catch (e) {
-        // on ne bloque pas l'UI si localStorage échoue
-        console.warn('localStorage save failed', e);
-    }
+
     document.getElementById('showGrid').addEventListener('change', (e) => {
         settings.showGrid = e.target.checked;
+        applyBackgroundToContainer();
         render();
+        saveToLocalStorageSilent();
     });
+
     document.getElementById('periodHeight')?.addEventListener('input', (e) => {
         document.getElementById('periodHeightValue').textContent = e.target.value + 'px';
     });
-    
+
     // Text selection tools
     document.getElementById('selectedTextSize')?.addEventListener('input', (e) => {
         document.getElementById('selectedTextSizeValue').textContent = e.target.value + 'px';
         if (selectedTextElement) {
             const event = selectedTextElement.event;
             const newSize = parseInt(e.target.value);
-            
+
             if (selectedTextElement.textType === 'title') {
                 event.customTitleSize = newSize;
             } else {
                 event.customYearSize = newSize;
             }
-            
+
             selectedTextElement.element.style.fontSize = newSize + 'px';
+            saveToLocalStorageSilent();
         }
     });
     document.getElementById('selectedTextBold')?.addEventListener('change', (e) => {
         if (selectedTextElement) {
             const event = selectedTextElement.event;
             const isBold = e.target.checked;
-            
+
             if (selectedTextElement.textType === 'title') {
                 event.customTitleBold = isBold;
             } else {
                 event.customYearBold = isBold;
             }
-            
+
             selectedTextElement.element.style.fontWeight = isBold ? 'bold' : 'normal';
+            saveToLocalStorageSilent();
         }
     });
 
@@ -178,7 +189,7 @@ function handleCanvasMouseDown(e) {
             x: e.clientX - viewOffset.x,
             y: e.clientY - viewOffset.y
         };
-        
+
         // Désélectionner le texte si on clique sur le canvas
         if (selectedTextElement) {
             selectedTextElement.element.classList.remove('selected-text');
@@ -221,104 +232,45 @@ function yearToX(year) {
     return ((year - settings.startYear) / totalYears) * canvasWidth;
 }
 
-// Conversion position X -> année
-function xToYear(x) {
-    const totalYears = settings.endYear - settings.startYear;
-    const canvasWidth = canvas.width;
-    return Math.round((x / canvasWidth) * totalYears + settings.startYear);
-}
-
 // Render la frise
 function render() {
-    console.log('Rendering timeline...');
-    console.log('Canvas size:', canvas.width, 'x', canvas.height);
-    console.log('Settings:', settings);
-    
     // Effacer tout
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Dessiner le fond
-    ctx.fillStyle = settings.bgColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    console.log('Background drawn with color:', settings.bgColor);
-    
-    // Dessiner le quadrillage
-    if (settings.showGrid) {
-        drawGrid();
-        console.log('Grid drawn');
-    }
-    
-    // Dessiner la ligne de temps principale
+
+    // Fond + grille : via CSS sur le container
+    applyBackgroundToContainer();
+
+    // IMPORTANT : ne pas remplir le canvas, sinon on ne voit pas la grille CSS
+    // (on garde le canvas transparent et on ne dessine que la frise + graduations)
     drawTimeline();
-    console.log('Timeline drawn');
-    
-    // Dessiner les périodes
+
+    // DOM
     drawPeriods();
-    
-    // Dessiner les artistes
     drawArtists();
-    
-    // Dessiner les événements
     drawEvents();
-    
+
     updateViewOffset();
 }
 
-function drawGrid() {
-    // 1 cm en CSS pixels (approx). Vous aviez 37.8, je garde ce repère.
-    const gridSize = 37.8;
-
-    ctx.save();
-    ctx.strokeStyle = '#d0d0d0';
-    ctx.lineWidth = 1;
-
-    // Lignes fines
-    ctx.beginPath();
-    for (let x = 0; x <= canvas.width; x += gridSize) {
-        ctx.moveTo(x + 0.5, 0);
-        ctx.lineTo(x + 0.5, canvas.height);
-    }
-    for (let y = 0; y <= canvas.height; y += gridSize) {
-        ctx.moveTo(0, y + 0.5);
-        ctx.lineTo(canvas.width, y + 0.5);
-    }
-    ctx.stroke();
-
-    // Lignes “majeures” tous les 5 carreaux (facultatif mais utile visuellement)
-    ctx.strokeStyle = '#b0b0b0';
-    ctx.lineWidth = 1;
-
-    ctx.beginPath();
-    const major = gridSize * 5;
-    for (let x = 0; x <= canvas.width; x += major) {
-        ctx.moveTo(x + 0.5, 0);
-        ctx.lineTo(x + 0.5, canvas.height);
-    }
-    for (let y = 0; y <= canvas.height; y += major) {
-        ctx.moveTo(0, y + 0.5);
-        ctx.lineTo(canvas.width, y + 0.5);
-    }
-    ctx.stroke();
-
-    ctx.restore();
+function applyBackgroundToContainer() {
+    container.style.backgroundColor = settings.bgColor;
+    container.classList.toggle('grid', !!settings.showGrid);
 }
 
 function drawTimeline() {
     const y = settings.timelineY;
     const thickness = settings.timelineThickness;
     const halfThickness = thickness / 2;
-    
-    console.log('Drawing timeline at Y:', y, 'with thickness:', thickness);
-    
-    // Barre principale avec fond blanc
+
+    // Barre principale avec fond blanc (comme avant)
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, y - halfThickness, canvas.width, thickness);
-    
+
     // Contour noir épais
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 5;
     ctx.strokeRect(0, y - halfThickness, canvas.width, thickness);
-    
+
     // Graduations noires
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 3;
@@ -327,35 +279,28 @@ function drawTimeline() {
     ctx.font = `bold ${fontSize}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
-    let gradCount = 0;
+
     for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
         const x = yearToX(year);
-        
-        // Ligne de graduation noire
+
         ctx.beginPath();
         ctx.moveTo(x, y - halfThickness);
         ctx.lineTo(x, y + halfThickness);
         ctx.stroke();
-        
-        // Année en noir
+
         ctx.fillText(year.toString(), x, y);
-        gradCount++;
     }
-    
-    console.log('Drew', gradCount, 'graduations');
 }
 
 function drawPeriods() {
-    // Les périodes sont maintenant des éléments DOM
     const existingPeriods = document.querySelectorAll('.period-bar');
     existingPeriods.forEach(el => el.remove());
-    
+
     periods.forEach(period => {
         const startX = yearToX(parseInt(period.startYear));
         const endX = yearToX(parseInt(period.endYear));
         const width = endX - startX;
-        
+
         const div = document.createElement('div');
         div.className = 'period-bar' + (selectedItem?.id === period.id ? ' selected' : '');
         div.style.left = startX + 'px';
@@ -363,18 +308,18 @@ function drawPeriods() {
         div.style.width = width + 'px';
         div.style.height = period.height + 'px';
         div.style.background = period.color;
-        
+
         div.innerHTML = `
             <div class="period-name">${period.name}</div>
             <div class="period-dates">${period.startYear} - ${period.endYear}</div>
         `;
-        
+
         div.addEventListener('mousedown', (e) => startDragPeriod(e, period));
         div.addEventListener('click', (e) => {
             e.stopPropagation();
             selectItem(period, 'period');
         });
-        
+
         eventsContainer.appendChild(div);
     });
 }
@@ -382,31 +327,31 @@ function drawPeriods() {
 function drawArtists() {
     const existingArtists = document.querySelectorAll('.artist-line');
     existingArtists.forEach(el => el.remove());
-    
+
     artists.forEach(artist => {
         const birthX = yearToX(parseInt(artist.birthYear));
         const deathX = yearToX(parseInt(artist.deathYear));
         const width = deathX - birthX;
-        
+
         const div = document.createElement('div');
         div.className = 'artist-line' + (selectedItem?.id === artist.id ? ' selected' : '');
         div.style.left = birthX + 'px';
         div.style.top = artist.y + 'px';
         div.style.width = width + 'px';
-        
+
         div.innerHTML = `
             <div class="artist-marker" style="left: 0;"></div>
             <div class="artist-marker" style="left: ${width - 10}px;"></div>
             <div class="artist-name">${artist.name}</div>
             <div class="artist-dates">${artist.birthYear} à ${artist.deathYear}</div>
         `;
-        
+
         div.addEventListener('mousedown', (e) => startDragArtist(e, artist));
         div.addEventListener('click', (e) => {
             e.stopPropagation();
             selectItem(artist, 'artist');
         });
-        
+
         eventsContainer.appendChild(div);
     });
 }
@@ -414,10 +359,10 @@ function drawArtists() {
 function drawEvents() {
     const existingEvents = document.querySelectorAll('.event-card');
     existingEvents.forEach(el => el.remove());
-    
+
     const existingLines = document.querySelectorAll('.connection-line');
     existingLines.forEach(el => el.remove());
-    
+
     events.forEach(event => {
         const x = yearToX(parseInt(event.year));
         const halfThickness = settings.timelineThickness / 2;
@@ -425,33 +370,30 @@ function drawEvents() {
         const timelineBottom = settings.timelineY + halfThickness;
         const eventBottom = event.y + event.height;
         const eventAboveTimeline = eventBottom < timelineTop;
-        
+
         const card = document.createElement('div');
         card.className = 'event-card' + (selectedItem?.id === event.id ? ' selected' : '');
         card.style.left = (x - event.width / 2) + 'px';
         card.style.top = event.y + 'px';
         card.style.width = event.width + 'px';
         card.style.height = event.height + 'px';
-        
-        // Styles de texte individuels ou par défaut
+
         const titleSize = event.customTitleSize || 12;
         const titleBold = event.customTitleBold !== undefined ? event.customTitleBold : false;
         const yearSize = event.customYearSize || 10;
         const yearBold = event.customYearBold !== undefined ? event.customYearBold : false;
-        
+
         card.innerHTML = `
             <img src="${event.image}" alt="${event.name}">
             <div class="event-title" data-event-id="${event.id}" data-text-type="title" style="font-size: ${titleSize}px; font-weight: ${titleBold ? 'bold' : 'normal'};">${event.name}</div>
             <div class="event-year" data-event-id="${event.id}" data-text-type="year" style="font-size: ${yearSize}px; font-weight: ${yearBold ? 'bold' : 'normal'};">${event.year}</div>
             <div class="resize-corner"></div>
         `;
-        
-        // Ligne de connexion - calcul correct selon position
+
         const lineDiv = document.createElement('div');
         lineDiv.className = 'connection-line';
-        
+
         if (eventAboveTimeline) {
-            // Événement AU-DESSUS de la frise
             const lineHeight = timelineTop - eventBottom;
             if (lineHeight > 0) {
                 lineDiv.style.left = x + 'px';
@@ -460,7 +402,6 @@ function drawEvents() {
                 eventsContainer.appendChild(lineDiv);
             }
         } else {
-            // Événement EN-DESSOUS de la frise
             const lineHeight = event.y - timelineBottom;
             if (lineHeight > 0) {
                 lineDiv.style.left = x + 'px';
@@ -469,7 +410,7 @@ function drawEvents() {
                 eventsContainer.appendChild(lineDiv);
             }
         }
-        
+
         card.addEventListener('mousedown', (e) => {
             if (!e.target.classList.contains('event-title') && !e.target.classList.contains('event-year')) {
                 startDragEvent(e, event);
@@ -479,50 +420,40 @@ function drawEvents() {
             e.stopPropagation();
             selectItem(event, 'event');
         });
-        
-        // Text selection
+
         const titleEl = card.querySelector('.event-title');
         const yearEl = card.querySelector('.event-year');
-        
+
         titleEl.addEventListener('click', (e) => {
             e.stopPropagation();
             selectTextElement(event, 'title', titleEl);
         });
-        
+
         yearEl.addEventListener('click', (e) => {
             e.stopPropagation();
             selectTextElement(event, 'year', yearEl);
         });
-        
+
         const resizeHandle = card.querySelector('.resize-corner');
         resizeHandle.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             startResizeEvent(e, event);
         });
-        
+
         eventsContainer.appendChild(card);
     });
 }
 
 function selectTextElement(event, textType, element) {
-    // Désélectionner l'ancien
     if (selectedTextElement) {
         selectedTextElement.element.classList.remove('selected-text');
     }
-    
-    // Sélectionner le nouveau
-    selectedTextElement = {
-        event: event,
-        textType: textType,
-        element: element
-    };
-    
+
+    selectedTextElement = { event, textType, element };
     element.classList.add('selected-text');
-    
-    // Afficher les outils
+
     document.getElementById('textStyleTools').style.display = 'block';
-    
-    // Mettre à jour les valeurs
+
     if (textType === 'title') {
         const size = event.customTitleSize || 12;
         const bold = event.customTitleBold !== undefined ? event.customTitleBold : false;
@@ -544,6 +475,7 @@ function startDragEvent(e, event) {
     draggedItem = {
         item: event,
         type: 'event',
+        // correction zoom : on stocke la position écran de référence
         startY: e.clientY - (event.y * settings.zoom)
     };
 }
@@ -553,7 +485,7 @@ function startDragPeriod(e, period) {
     draggedItem = {
         item: period,
         type: 'period',
-        startY: e.clientY - period.y
+        startY: e.clientY - (period.y * settings.zoom)
     };
 }
 
@@ -562,7 +494,7 @@ function startDragArtist(e, artist) {
     draggedItem = {
         item: artist,
         type: 'artist',
-        startY: e.clientY - artist.y
+        startY: e.clientY - (artist.y * settings.zoom)
     };
 }
 
@@ -579,42 +511,47 @@ function startResizeEvent(e, event) {
 
 function handleItemDrag(e) {
     if (!draggedItem) return;
-    
+
+    // correction zoom : on ramène en coordonnées "monde"
     const newY = (e.clientY - draggedItem.startY) / settings.zoom;
-    
+
     if (draggedItem.type === 'event') {
         const event = events.find(ev => ev.id === draggedItem.item.id);
         if (event) {
             event.y = Math.max(0, newY);
             render();
+            saveToLocalStorageSilent();
         }
     } else if (draggedItem.type === 'period') {
         const period = periods.find(p => p.id === draggedItem.item.id);
         if (period) {
             period.y = Math.max(0, newY);
             render();
+            saveToLocalStorageSilent();
         }
     } else if (draggedItem.type === 'artist') {
         const artist = artists.find(a => a.id === draggedItem.item.id);
         if (artist) {
             artist.y = Math.max(0, newY);
             render();
+            saveToLocalStorageSilent();
         }
     }
 }
 
 function handleItemResize(e) {
     if (!resizingItem) return;
-    
-    const deltaX = e.clientX - resizingItem.startX;
-    const deltaY = e.clientY - resizingItem.startY;
+
+    const deltaX = (e.clientX - resizingItem.startX) / settings.zoom;
+    const deltaY = (e.clientY - resizingItem.startY) / settings.zoom;
     const delta = Math.max(deltaX, deltaY);
-    
+
     const event = events.find(ev => ev.id === resizingItem.item.id);
     if (event) {
         event.width = Math.max(80, resizingItem.startWidth + delta);
         event.height = Math.max(80, resizingItem.startHeight + delta);
         render();
+        saveToLocalStorageSilent();
     }
 }
 
@@ -625,7 +562,7 @@ function selectItem(item, type) {
     render();
 }
 
-// Modals
+// Modals (inchangées)
 function showEventModal() {
     document.getElementById('eventModal').classList.add('show');
     editMode = false;
@@ -666,12 +603,12 @@ function saveEvent() {
     const year = document.getElementById('eventYear').value;
     const preview = document.getElementById('eventPreview');
     const image = preview.src;
-    
+
     if (!name || !year || !image || image === window.location.href) {
         alert('Veuillez remplir tous les champs');
         return;
     }
-    
+
     if (editMode && selectedItem) {
         const event = events.find(e => e.id === selectedItem.id);
         if (event) {
@@ -690,9 +627,10 @@ function saveEvent() {
             height: 120
         });
     }
-    
+
     closeModals();
     render();
+    saveToLocalStorageSilent();
 }
 
 function savePeriod() {
@@ -701,12 +639,12 @@ function savePeriod() {
     const endYear = document.getElementById('periodEnd').value;
     const color = document.getElementById('periodColor').value;
     const height = parseInt(document.getElementById('periodHeight').value);
-    
+
     if (!name || !startYear || !endYear) {
         alert('Veuillez remplir tous les champs');
         return;
     }
-    
+
     if (editMode && selectedItem) {
         const period = periods.find(p => p.id === selectedItem.id);
         if (period) {
@@ -727,21 +665,22 @@ function savePeriod() {
             height: height
         });
     }
-    
+
     closeModals();
     render();
+    saveToLocalStorageSilent();
 }
 
 function saveArtist() {
     const name = document.getElementById('artistName').value;
     const birthYear = document.getElementById('artistBirth').value;
     const deathYear = document.getElementById('artistDeath').value;
-    
+
     if (!name || !birthYear || !deathYear) {
         alert('Veuillez remplir tous les champs');
         return;
     }
-    
+
     if (editMode && selectedItem) {
         const artist = artists.find(a => a.id === selectedItem.id);
         if (artist) {
@@ -758,16 +697,17 @@ function saveArtist() {
             y: settings.timelineY - 100
         });
     }
-    
+
     closeModals();
     render();
+    saveToLocalStorageSilent();
 }
 
 function editSelectedItem() {
     if (!selectedItem) return;
-    
+
     editMode = true;
-    
+
     if (selectedItem.type === 'event') {
         document.getElementById('eventModalTitle').textContent = 'Modifier l\'événement';
         document.getElementById('eventName').value = selectedItem.name;
@@ -795,7 +735,7 @@ function editSelectedItem() {
 
 function deleteSelectedItem() {
     if (!selectedItem) return;
-    
+
     if (selectedItem.type === 'event') {
         events = events.filter(e => e.id !== selectedItem.id);
     } else if (selectedItem.type === 'period') {
@@ -803,10 +743,11 @@ function deleteSelectedItem() {
     } else if (selectedItem.type === 'artist') {
         artists = artists.filter(a => a.id !== selectedItem.id);
     }
-    
+
     selectedItem = null;
     document.getElementById('selectedItemActions').style.display = 'none';
     render();
+    saveToLocalStorageSilent();
 }
 
 function centerOnYearZero() {
@@ -819,25 +760,20 @@ function centerOnYearZero() {
 function applyBackgroundColor() {
     const newColor = document.getElementById('bgColor').value;
     settings.bgColor = newColor;
-    console.log('Background color applied:', newColor);
+    applyBackgroundToContainer();
     render();
+    saveToLocalStorageSilent();
 }
 
 // Sauvegarde / Chargement fichier
 function saveToFile() {
     try {
-        const data = {
-            events,
-            periods,
-            artists,
-            settings,
-            version: '1.0'
-        };
-        
+        const data = { events, periods, artists, settings, version: '1.0' };
+
         const dataStr = JSON.stringify(data, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
+
         const link = document.createElement('a');
         link.href = url;
         const filename = `frise-chronologique-${new Date().getTime()}.json`;
@@ -845,10 +781,9 @@ function saveToFile() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         setTimeout(() => URL.revokeObjectURL(url), 100);
-        
-        console.log('File saved:', filename);
+
         alert('Sauvegarde téléchargée ! 💾');
     } catch (error) {
         console.error('Save error:', error);
@@ -859,18 +794,20 @@ function saveToFile() {
 function loadFromFile(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-            
+
             events = data.events || [];
             periods = data.periods || [];
             artists = data.artists || [];
-            
+
+            // fusion settings (robuste)
             if (data.settings) {
-                settings = data.settings;
+                settings = { ...settings, ...data.settings };
+
                 document.getElementById('startYear').value = settings.startYear;
                 document.getElementById('endYear').value = settings.endYear;
                 document.getElementById('scale').value = settings.scale;
@@ -882,30 +819,33 @@ function loadFromFile(event) {
                 document.getElementById('bgColor').value = settings.bgColor || '#ffffff';
                 document.getElementById('showGrid').checked = settings.showGrid !== undefined ? settings.showGrid : true;
             }
-            
+
             resizeCanvas();
             render();
+            saveToLocalStorageSilent();
             alert('Sauvegarde chargée avec succès ! 📂');
         } catch (error) {
             alert('Erreur lors du chargement du fichier : ' + error.message);
         }
     };
     reader.readAsText(file);
-    
-    // Reset input pour permettre de recharger le même fichier
+
     event.target.value = '';
 }
 
 // Sauvegarde / Chargement localStorage
 function saveToLocalStorage() {
-    const data = {
-        events,
-        periods,
-        artists,
-        settings
-    };
+    const data = { events, periods, artists, settings };
     localStorage.setItem('timelineData', JSON.stringify(data));
     alert('Sauvegarde réussie dans le navigateur ! 💾');
+}
+
+function saveToLocalStorageSilent() {
+    try {
+        localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
+    } catch (e) {
+        console.warn('localStorage save failed', e);
+    }
 }
 
 function loadFromLocalStorage() {
@@ -915,8 +855,10 @@ function loadFromLocalStorage() {
         events = parsed.events || [];
         periods = parsed.periods || [];
         artists = parsed.artists || [];
+
         if (parsed.settings) {
-            settings = parsed.settings;
+            settings = { ...settings, ...parsed.settings };
+
             document.getElementById('startYear').value = settings.startYear;
             document.getElementById('endYear').value = settings.endYear;
             document.getElementById('scale').value = settings.scale;
@@ -928,6 +870,7 @@ function loadFromLocalStorage() {
             document.getElementById('bgColor').value = settings.bgColor || '#ffffff';
             document.getElementById('showGrid').checked = settings.showGrid !== undefined ? settings.showGrid : true;
         }
+
         resizeCanvas();
         render();
     }
