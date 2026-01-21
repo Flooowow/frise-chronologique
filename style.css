@@ -9,7 +9,14 @@ body {
     overflow: hidden;
     background: #f5f5f5;
 }
-
+/* Quadrillage CSS optionnel */
+#canvasContainer.grid {
+  background-image:
+    linear-gradient(to right, #d0d0d0 1px, transparent 1px),
+    linear-gradient(to bottom, #d0d0d0 1px, transparent 1px);
+  background-size: 37.8px 37.8px;
+  background-position: 0 0;
+}
 /* Sidebar */
 .sidebar {
     position: fixed;
