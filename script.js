@@ -92,8 +92,7 @@ function setupEventListeners() {
         render();
     });
     document.getElementById('bgColor').addEventListener('input', (e) => {
-        settings.bgColor = e.target.value;
-        render();
+        // Ne fait rien au changement, attend le clic sur "Appliquer"
     });
     document.getElementById('showGrid').addEventListener('change', (e) => {
         settings.showGrid = e.target.checked;
@@ -242,8 +241,8 @@ function render() {
 
 function drawGrid() {
     const gridSize = 37.8; // Approximativement 1cm à 96dpi
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#d1d5db';
+    ctx.lineWidth = 0.5;
     
     // Lignes verticales
     for (let x = 0; x <= canvas.width; x += gridSize) {
@@ -267,19 +266,20 @@ function drawTimeline() {
     const thickness = settings.timelineThickness;
     const halfThickness = thickness / 2;
     
-    // Barre principale avec fond blanc et contour noir
+    // Barre principale avec fond blanc et contour noir épais
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, y - halfThickness, canvas.width, thickness);
     
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3;
+    // Contour noir épais
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 4;
     ctx.strokeRect(0, y - halfThickness, canvas.width, thickness);
     
-    // Graduations
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.fillStyle = '#000';
-    const fontSize = Math.max(12, Math.min(20, thickness * 0.4));
+    // Graduations noires
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.fillStyle = '#000000';
+    const fontSize = Math.max(14, Math.min(22, thickness * 0.45));
     ctx.font = `bold ${fontSize}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -287,7 +287,7 @@ function drawTimeline() {
     for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
         const x = yearToX(year);
         
-        // Ligne de graduation
+        // Ligne de graduation noire
         ctx.beginPath();
         ctx.moveTo(x, y - halfThickness);
         ctx.lineTo(x, y + halfThickness);
@@ -391,19 +391,28 @@ function drawEvents() {
             <div class="resize-corner"></div>
         `;
         
-        // Ligne de connexion
+        // Ligne de connexion - détecte si au-dessus ou en-dessous
         const lineDiv = document.createElement('div');
         lineDiv.className = 'connection-line';
+        const halfThickness = settings.timelineThickness / 2;
+        
         if (eventAboveTimeline) {
+            // Événement au-dessus de la frise
             lineDiv.style.left = x + 'px';
             lineDiv.style.top = (event.y + event.height) + 'px';
-            lineDiv.style.height = (settings.timelineY - event.y - event.height - settings.timelineThickness / 2) + 'px';
+            const lineHeight = (settings.timelineY - halfThickness) - (event.y + event.height);
+            lineDiv.style.height = Math.max(0, lineHeight) + 'px';
         } else {
+            // Événement en-dessous de la frise
             lineDiv.style.left = x + 'px';
-            lineDiv.style.top = (settings.timelineY + settings.timelineThickness / 2) + 'px';
-            lineDiv.style.height = (event.y - settings.timelineY - settings.timelineThickness / 2) + 'px';
+            lineDiv.style.top = (settings.timelineY + halfThickness) + 'px';
+            const lineHeight = event.y - (settings.timelineY + halfThickness);
+            lineDiv.style.height = Math.max(0, lineHeight) + 'px';
         }
-        eventsContainer.appendChild(lineDiv);
+        
+        if (lineDiv.style.height !== '0px') {
+            eventsContainer.appendChild(lineDiv);
+        }
         
         card.addEventListener('mousedown', (e) => {
             if (!e.target.classList.contains('event-title') && !e.target.classList.contains('event-year')) {
@@ -751,7 +760,75 @@ function centerOnYearZero() {
     updateViewOffset();
 }
 
-// Sauvegarde / Chargement
+function applyBackgroundColor() {
+    settings.bgColor = document.getElementById('bgColor').value;
+    render();
+}
+
+// Sauvegarde / Chargement fichier
+function saveToFile() {
+    const data = {
+        events,
+        periods,
+        artists,
+        settings,
+        version: '1.0'
+    };
+    
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `frise-chronologique-${Date.now()}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    alert('Sauvegarde téléchargée ! 💾');
+}
+
+function loadFromFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            events = data.events || [];
+            periods = data.periods || [];
+            artists = data.artists || [];
+            
+            if (data.settings) {
+                settings = data.settings;
+                document.getElementById('startYear').value = settings.startYear;
+                document.getElementById('endYear').value = settings.endYear;
+                document.getElementById('scale').value = settings.scale;
+                document.getElementById('timelineY').value = settings.timelineY;
+                document.getElementById('timelineThickness').value = settings.timelineThickness || 40;
+                document.getElementById('zoomLevel').value = settings.zoom;
+                document.getElementById('pagesH').value = settings.pagesH || 3;
+                document.getElementById('pagesV').value = settings.pagesV || 2;
+                document.getElementById('bgColor').value = settings.bgColor || '#ffffff';
+                document.getElementById('showGrid').checked = settings.showGrid !== undefined ? settings.showGrid : true;
+            }
+            
+            resizeCanvas();
+            render();
+            alert('Sauvegarde chargée avec succès ! 📂');
+        } catch (error) {
+            alert('Erreur lors du chargement du fichier : ' + error.message);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset input pour permettre de recharger le même fichier
+    event.target.value = '';
+}
+
+// Sauvegarde / Chargement localStorage
 function saveToLocalStorage() {
     const data = {
         events,
@@ -760,7 +837,7 @@ function saveToLocalStorage() {
         settings
     };
     localStorage.setItem('timelineData', JSON.stringify(data));
-    alert('Sauvegarde réussie ! 💾');
+    alert('Sauvegarde réussie dans le navigateur ! 💾');
 }
 
 function loadFromLocalStorage() {
