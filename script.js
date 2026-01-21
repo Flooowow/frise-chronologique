@@ -232,6 +232,21 @@ function yearToX(year) {
     return ((year - settings.startYear) / totalYears) * canvasWidth;
 }
 
+function getMouseWorldPos(e) {
+    // coordonnées souris -> coordonnées monde (canvas)
+    const rect = container.getBoundingClientRect();
+
+    // position dans le viewport -> position dans le container scrollé
+    const xInContainer = (e.clientX - rect.left) + container.scrollLeft;
+    const yInContainer = (e.clientY - rect.top) + container.scrollTop;
+
+    // retirer le pan (viewOffset) et le zoom
+    const worldX = (xInContainer - viewOffset.x) / settings.zoom;
+    const worldY = (yInContainer - viewOffset.y) / settings.zoom;
+
+    return { x: worldX, y: worldY };
+}
+
 // Render la frise
 function render() {
     // Effacer tout
@@ -472,67 +487,73 @@ function selectTextElement(event, textType, element) {
 // Drag & Drop handlers
 function startDragEvent(e, event) {
     e.stopPropagation();
+    const m = getMouseWorldPos(e);
     draggedItem = {
         item: event,
         type: 'event',
-        // correction zoom : on stocke la position écran de référence
-        startY: e.clientY - (event.y * settings.zoom)
+        offsetY: m.y - event.y
     };
 }
 
 function startDragPeriod(e, period) {
     e.stopPropagation();
+    const m = getMouseWorldPos(e);
     draggedItem = {
         item: period,
         type: 'period',
-        startY: e.clientY - (period.y * settings.zoom)
+        offsetY: m.y - period.y
     };
 }
 
 function startDragArtist(e, artist) {
     e.stopPropagation();
+    const m = getMouseWorldPos(e);
     draggedItem = {
         item: artist,
         type: 'artist',
-        startY: e.clientY - (artist.y * settings.zoom)
-    };
-}
-
-function startResizeEvent(e, event) {
-    e.stopPropagation();
-    resizingItem = {
-        item: event,
-        startX: e.clientX,
-        startY: e.clientY,
-        startWidth: event.width,
-        startHeight: event.height
+        offsetY: m.y - artist.y
     };
 }
 
 function handleItemDrag(e) {
     if (!draggedItem) return;
 
-    // correction zoom : on ramène en coordonnées "monde"
-    const newY = (e.clientY - draggedItem.startY) / settings.zoom;
+    const m = getMouseWorldPos(e);
+    const newY = m.y - draggedItem.offsetY;
 
     if (draggedItem.type === 'event') {
-        const event = events.find(ev => ev.id === draggedItem.item.id);
-        if (event) {
-            event.y = Math.max(0, newY);
+        const ev = events.find(x => x.id === draggedItem.item.id);
+        if (ev) {
+            // autoriser tout le haut, mais pas au-delà des limites du canvas
+            ev.y = Math.max(0, Math.min(canvas.height - ev.height, newY));
             render();
             saveToLocalStorageSilent();
         }
     } else if (draggedItem.type === 'period') {
-        const period = periods.find(p => p.id === draggedItem.item.id);
-        if (period) {
-            period.y = Math.max(0, newY);
+        const p = periods.find(x => x.id === draggedItem.item.id);
+        if (p) {
+            p.y = Math.max(0, Math.min(canvas.height - p.height, newY));
             render();
             saveToLocalStorageSilent();
         }
     } else if (draggedItem.type === 'artist') {
-        const artist = artists.find(a => a.id === draggedItem.item.id);
-        if (artist) {
-            artist.y = Math.max(0, newY);
+        const a = artists.find(x => x.id === draggedItem.item.id);
+        if (a) {
+            a.y = Math.max(0, Math.min(canvas.height, newY));
+            render();
+            saveToLocalStorageSilent();
+        }
+    } else if (draggedItem.type === 'periodText') {
+        const p = periods.find(x => x.id === draggedItem.item.id);
+        if (p) {
+            p.textOffsetY = Math.max(-200, Math.min(200, m.y - draggedItem.baseY));
+            render();
+            saveToLocalStorageSilent();
+        }
+    } else if (draggedItem.type === 'artistText') {
+        const a = artists.find(x => x.id === draggedItem.item.id);
+        if (a) {
+            a.textOffsetY = Math.max(-200, Math.min(200, m.y - draggedItem.baseY));
             render();
             saveToLocalStorageSilent();
         }
@@ -552,6 +573,25 @@ function handleItemResize(e) {
         event.height = Math.max(80, resizingItem.startHeight + delta);
         render();
         saveToLocalStorageSilent();
+    }
+}
+function ensureEventCardFitsText(event) {
+    // Hauteurs minimales (ajustables)
+    const minImg = 50;
+    const paddingAndGaps = 22; // marge/padding approximatifs
+
+    const titleSize = event.customTitleSize || 12;
+    const yearSize = event.customYearSize || 10;
+
+    // Estimation simple de hauteur texte (robuste sans mesure DOM)
+    // 2 lignes max pour le titre, 1 ligne pour l'année
+    const titleH = Math.ceil(titleSize * 1.2 * 2);
+    const yearH = Math.ceil(yearSize * 1.2 * 1);
+
+    const minTotal = minImg + titleH + yearH + paddingAndGaps;
+
+    if (event.height < minTotal) {
+        event.height = minTotal;
     }
 }
 
