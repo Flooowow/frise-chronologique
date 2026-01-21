@@ -17,7 +17,8 @@ body {
 
 /* Sidebar */
 .sidebar {
-  position: fixed; left: 0; top: 0;
+  position: fixed;
+  left: 0; top: 0;
   width: 320px; height: 100vh;
   background: white;
   box-shadow: 2px 0 10px rgba(0,0,0,0.1);
@@ -25,14 +26,17 @@ body {
   z-index: 1000;
   overflow-y: auto;
 }
+
 .sidebar.closed { transform: translateX(-320px); }
 
 .toggle-btn {
   position: absolute;
-  right: -40px; top: 50%;
+  right: -40px;
+  top: 50%;
   transform: translateY(-50%);
   background: #2563eb;
-  color: white; border: none;
+  color: white;
+  border: none;
   padding: 12px 10px;
   cursor: pointer;
   border-radius: 0 8px 8px 0;
@@ -41,14 +45,35 @@ body {
 
 .sidebar-content { padding: 20px; }
 
-.sidebar h2 { margin-bottom: 20px; color: #1f2937; font-size: 20px; }
-.sidebar h3 { margin: 15px 0 10px; font-size: 16px; color: #374151; }
+.sidebar h2 {
+  margin-bottom: 20px;
+  color: #1f2937;
+  font-size: 20px;
+}
+
+.sidebar h3 {
+  margin: 15px 0 10px;
+  font-size: 16px;
+  color: #374151;
+}
 
 .form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 5px; color: #6b7280; font-size: 14px; }
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #6b7280;
+  font-size: 14px;
+}
 
 .form-group input[type="checkbox"] { width: auto; margin-right: 8px; }
-.form-group span { display: inline-block; margin-left: 10px; color: #374151; font-weight: 600; }
+
+.form-group span {
+  display: inline-block;
+  margin-left: 10px;
+  color: #374151;
+  font-weight: 600;
+}
 
 .form-group input {
   width: 100%;
@@ -62,7 +87,8 @@ body {
   width: 100%;
   padding: 10px 16px;
   margin-bottom: 10px;
-  border: none; border-radius: 6px;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -80,7 +106,7 @@ body {
 
 .btn:hover { opacity: 0.9; transform: translateY(-1px); }
 
-/* Canvas container */
+/* Canvas Container */
 .canvas-container {
   position: fixed;
   left: 320px; top: 0; right: 0; bottom: 0;
@@ -88,44 +114,43 @@ body {
   cursor: grab;
   background: #ffffff; /* écrasé par JS */
 }
+
 .canvas-container.grabbing { cursor: grabbing; }
 .canvas-container.closed { left: 0; }
 
 #timeline {
   position: absolute;
   top: 0; left: 0;
-  background: transparent; /* important pour voir la grille CSS */
+  background: transparent;
 }
 
 #eventsContainer {
   position: absolute;
   top: 0; left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   pointer-events: none;
 }
 
-/* Highlight sélection */
+/* -------------------- Sélections / Highlight -------------------- */
 .event-card.selected,
 .period-bar.selected,
-.artist-bar.selected {
+.artist-box.selected {
   box-shadow: 0 0 0 4px rgba(59,130,246,0.35), 0 8px 20px rgba(0,0,0,0.15);
-  outline: 3px solid rgba(59,130,246,0.65);
-  outline-offset: 2px;
+  border-color: #2563eb !important;
 }
 
 .selected-text {
   background: rgba(59,130,246,0.25) !important;
-  outline: 3px solid rgba(59,130,246,0.85) !important;
+  outline: 3px solid rgba(59,130,246,0.8) !important;
   border-radius: 4px;
 }
 
-/* Event cards */
+/* -------------------- Events -------------------- */
 .event-card {
   position: absolute;
   background: white;
   border: 2px solid #d1d5db;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   cursor: grab;
@@ -142,109 +167,137 @@ body {
 .event-card img {
   width: 100%;
   flex: 1 1 auto;
-  min-height: 60px;
+  min-height: 50px;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 4px;
   pointer-events: none;
 }
 
-.event-card .event-title,
-.event-card .event-year {
-  line-height: 1.15;
+.event-title,
+.event-year {
   text-align: center;
   word-break: break-word;
   overflow: hidden;
+  line-height: 1.1;
   pointer-events: all;
   cursor: text;
-  padding: 2px 4px;
-  border-radius: 4px;
-  transition: background 0.2s;
+  padding: 2px;
 }
-.event-card .event-title:hover,
-.event-card .event-year:hover { background: rgba(59,130,246,0.10); }
 
-.event-card .event-year { color: #6b7280; }
+.event-title { font-size: 12px; font-weight: 600; }
+.event-year { font-size: 10px; color: #6b7280; }
 
+/* handles resize */
 .resize-corner {
   position: absolute;
   bottom: 0; right: 0;
   width: 16px; height: 16px;
   cursor: nwse-resize;
-  background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.35) 50%);
-  border-bottom-right-radius: 10px;
+  background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.3) 50%);
+  border-bottom-right-radius: 6px;
 }
 
-/* Connection line (évènements) */
+.resize-h {
+  position: absolute;
+  top: 0; right: 0;
+  width: 10px; height: 100%;
+  cursor: ew-resize;
+  background: rgba(0,0,0,0.03);
+}
+
+.resize-v {
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 100%; height: 10px;
+  cursor: ns-resize;
+  background: rgba(0,0,0,0.03);
+}
+
+/* ligne de connexion */
 .connection-line {
   position: absolute;
   width: 2px;
-  background: repeating-linear-gradient(
-    to bottom,
-    #666 0px,
-    #666 4px,
-    transparent 4px,
-    transparent 8px
-  );
+  background: repeating-linear-gradient(to bottom, #666 0px, #666 4px, transparent 4px, transparent 8px);
   pointer-events: none;
 }
 
-/* Period bars */
+/* -------------------- Periods -------------------- */
 .period-bar {
   position: absolute;
   opacity: 0.85;
-  border-radius: 6px;
-  cursor: ns-resize;
+  border-radius: 4px;
+  border: 2px solid rgba(0,0,0,0.15);
+  cursor: grab;
   pointer-events: all;
-  padding: 4px;
+  user-select: none;
 }
-.period-bar .period-name,
-.period-bar .period-dates {
+
+.period-name, .period-dates {
   color: white;
   text-align: center;
   pointer-events: all;
   cursor: text;
   padding: 2px 4px;
-  border-radius: 4px;
 }
 
-/* Artist bars (rectangle comme votre capture) */
-.artist-bar {
+/* -------------------- Artists (rectangle) -------------------- */
+.artist-box {
   position: absolute;
-  opacity: 0.95;
+  background: rgba(255,255,255,0.92);
+  border: 2px dashed #666;
   border-radius: 6px;
-  background: #ffffff;
-  border: 2px solid #111;
   pointer-events: all;
-  cursor: ns-resize;
-  padding: 4px 6px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  cursor: grab;
+  user-select: none;
+  padding: 6px 8px;
 }
 
-.artist-bar .artist-name,
-.artist-bar .artist-dates {
+.artist-name, .artist-dates {
+  color: #111827;
   text-align: center;
   pointer-events: all;
   cursor: text;
   padding: 2px 4px;
-  border-radius: 4px;
-  white-space: nowrap;
+  line-height: 1.1;
 }
 
-.artist-bar .artist-dates { color: #333; opacity: 0.85; }
+.artist-dates { color: #374151; }
+
+/* handles artiste */
+.artist-resize-left {
+  position: absolute; left: -6px; top: 0;
+  width: 12px; height: 100%;
+  cursor: ew-resize;
+}
+.artist-resize-right {
+  position: absolute; right: -6px; top: 0;
+  width: 12px; height: 100%;
+  cursor: ew-resize;
+}
+.artist-resize-bottom {
+  position: absolute; left: 0; bottom: -6px;
+  width: 100%; height: 12px;
+  cursor: ns-resize;
+}
+.artist-resize-corner {
+  position: absolute; right: -6px; bottom: -6px;
+  width: 12px; height: 12px;
+  cursor: nwse-resize;
+  background: rgba(0,0,0,0.08);
+  border-radius: 3px;
+}
 
 /* Modals */
 .modal {
   display: none;
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  inset: 0;
   background: rgba(0,0,0,0.5);
   z-index: 2000;
   justify-content: center;
   align-items: center;
 }
+
 .modal.show { display: flex; }
 
 .modal-content {
@@ -271,4 +324,5 @@ body {
   gap: 10px;
   margin-top: 20px;
 }
+
 .modal-buttons .btn { flex: 1; margin: 0; }
