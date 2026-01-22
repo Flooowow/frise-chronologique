@@ -333,16 +333,14 @@ function drawEvents() {
       if (e.target.dataset.owner === 'event') return;
       const m = getMouseWorldPos(e);
       draggedItem = { type: 'event', item: ev, offsetY: m.y - ev.y };
-    });
-
-    card.querySelectorAll('[data-owner="event"]').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectTextElement(el);
-      });
-    });
-
-    card.querySelector('.resize-corner').addEventListener('mousedown', (e) => {
+    div.innerHTML = `
+      <div class="artist-marker" style="left: 0;"></div>
+      <div class="artist-marker" style="left: ${width - 10}px;"></div>
+      <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
+           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.name)}</div>
+      <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
+           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
+    `;
       e.stopPropagation();
       const m = getMouseWorldPos(e);
       resizingItem = { type: 'eventP', item: ev, startX: m.x, startY: m.y, startW: ev.width, startH: ev.height };
