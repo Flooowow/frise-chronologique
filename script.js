@@ -421,13 +421,14 @@ function drawArtists() {
     const datesBold = a.datesBold ?? false;
 
     div.innerHTML = `
-      <div class="artist-marker" style="left: 0;"></div>
-      <div class="artist-marker" style="left: ${width - 10}px;"></div>
-      <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
-           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}">${escapeHtml(a.name)}</div>
-      <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
-           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
-    `;
+      div.innerHTML = `
+  <div class="artist-marker" style="left: 0;"></div>
+  <div class="artist-marker" style="left: ${width - 10}px;"></div>
+  <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
+       style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.name)}</div>
+  <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
+       style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
+`;
 
     div.addEventListener('click', (e) => {
       e.stopPropagation();
