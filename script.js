@@ -3,14 +3,14 @@ let events = [];
 let periods = [];
 let artists = [];
 
-let selectedItem = null;
-let selectedTextElement = null;
+let selectedItem = null;          // {id, type}
+let selectedTextElement = null;   // { owner, obj, key, element } OU ancien {event,textType,element}
 
 let settings = {
   startYear: -500,
   endYear: 2000,
-  scale: 50,
-  minorDivisions: 10,
+  scale: 50,              // graduation principale
+  minorDivisions: 10,     // petites graduations par intervalle
   timelineY: 300,
   timelineThickness: 40,
   zoom: 1,
@@ -25,8 +25,8 @@ let isDraggingCanvas = false;
 let dragStart = { x: 0, y: 0 };
 let viewOffset = { x: 0, y: 0 };
 
-let draggedItem = null;
-let resizingItem = null;
+let draggedItem = null;   // { type, item, offsetY / etc. }
+let resizingItem = null;  // { type, item, ... }
 
 let editMode = false;
 
@@ -112,25 +112,34 @@ function setupEventListeners() {
     document.getElementById('periodHeightValue').textContent = e.target.value + 'px';
   });
 
-  // Outils texte
+  // Outils texte (événements + périodes + artistes)
   document.getElementById('selectedTextSize').addEventListener('input', (e) => {
     const size = parseInt(e.target.value);
     document.getElementById('selectedTextSizeValue').textContent = size + 'px';
 
     if (!selectedTextElement) return;
 
+    // ancien format (event)
+    if (selectedTextElement.event) {
+      const ev = selectedTextElement.event;
+      if (selectedTextElement.textType === 'title') ev.customTitleSize = size;
+      else ev.customYearSize = size;
+      ensureEventCardFitsText(ev);
+      render(); saveToLocalStorageSilent();
+      return;
+    }
+
+    // nouveau format (period/artist)
     const { owner, obj, key } = selectedTextElement;
     if (!obj) return;
 
-    if (owner === 'event') {
-      if (key === 'title') obj.customTitleSize = size;
-      else if (key === 'year') obj.customYearSize = size;
-    } else if (owner === 'period') {
+    if (owner === 'period') {
       if (key === 'name') obj.nameSize = size;
       else if (key === 'dates') obj.datesSize = size;
     } else if (owner === 'artist') {
       if (key === 'name') obj.nameSize = size;
       else if (key === 'dates') obj.datesSize = size;
+      // agrandir la box artiste si texte plus grand
       ensureArtistBoxFitsText(obj);
     }
 
@@ -141,13 +150,18 @@ function setupEventListeners() {
     const bold = e.target.checked;
     if (!selectedTextElement) return;
 
+    if (selectedTextElement.event) {
+      const ev = selectedTextElement.event;
+      if (selectedTextElement.textType === 'title') ev.customTitleBold = bold;
+      else ev.customYearBold = bold;
+      render(); saveToLocalStorageSilent();
+      return;
+    }
+
     const { owner, obj, key } = selectedTextElement;
     if (!obj) return;
 
-    if (owner === 'event') {
-      if (key === 'title') obj.customTitleBold = bold;
-      else if (key === 'year') obj.customYearBold = bold;
-    } else if (owner === 'period') {
+    if (owner === 'period') {
       if (key === 'name') obj.nameBold = bold;
       else if (key === 'dates') obj.datesBold = bold;
     } else if (owner === 'artist') {
@@ -160,10 +174,13 @@ function setupEventListeners() {
 
   // Canvas pan
   container.addEventListener('mousedown', (e) => {
+    // uniquement si on clique sur le fond/canvas (pas sur une carte)
     if (e.target === canvas || e.target === container) {
       isDraggingCanvas = true;
       container.classList.add('grabbing');
       dragStart = { x: e.clientX - viewOffset.x, y: e.clientY - viewOffset.y };
+
+      // désélection texte
       clearSelectedText();
     }
   });
@@ -225,10 +242,11 @@ function xToYear(x) {
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  drawTimeline();
-  drawPeriods();
-  drawArtists();
-  drawEvents();
+  drawTimeline();   // frise + graduations (avec petites graduations)
+
+  drawPeriods();    // DOM
+  drawArtists();    // DOM
+  drawEvents();     // DOM
 
   updateViewOffset();
 }
@@ -301,9 +319,9 @@ function clearSelectedText() {
 function selectGenericTextElement(domEl) {
   clearSelectedText();
 
-  const owner = domEl.dataset.owner;
+  const owner = domEl.dataset.owner; // event/period/artist
   const id = parseInt(domEl.dataset.id);
-  const key = domEl.dataset.key;
+  const key = domEl.dataset.key;     // title/year/name/dates
 
   let obj = null;
   if (owner === 'event') obj = events.find(x => x.id === id);
@@ -345,6 +363,7 @@ function ensureEventCardFitsText(ev) {
   const titleSize = ev.customTitleSize || 12;
   const yearSize = ev.customYearSize || 10;
 
+  // estimation : titre jusqu'à 2 lignes, année 1 ligne
   const titleH = Math.ceil(titleSize * 1.25 * 2);
   const yearH = Math.ceil(yearSize * 1.25 * 1);
 
@@ -388,39 +407,45 @@ function drawEvents() {
       <div class="resize-corner" title="Redimensionner proportionnel"></div>
     `;
 
+    // sélection item
     card.addEventListener('click', (e) => {
       e.stopPropagation();
       selectItem(ev, 'event');
     });
 
+    // drag vertical
     card.addEventListener('mousedown', (e) => {
       if (e.target.classList.contains('resize-h') ||
           e.target.classList.contains('resize-v') ||
           e.target.classList.contains('resize-corner')) return;
 
+      // si clique sur texte -> pas drag carte
       if (e.target.classList.contains('event-title') || e.target.classList.contains('event-year')) return;
 
       const m = getMouseWorldPos(e);
-      // DÉPLACEMENT VERTICAL ILLIMITÉ - pas de limite !
       draggedItem = { type: 'event', item: ev, offsetY: m.y - ev.y };
     });
 
+    // sélection texte
     card.querySelectorAll('[data-owner="event"]').forEach(el => {
       el.addEventListener('click', (e) => { e.stopPropagation(); selectGenericTextElement(el); });
     });
 
+    // resize largeur
     card.querySelector('.resize-h').addEventListener('mousedown', (e) => {
       e.stopPropagation();
       const m = getMouseWorldPos(e);
       resizingItem = { type: 'eventW', item: ev, startX: m.x, startW: ev.width };
     });
 
+    // resize hauteur
     card.querySelector('.resize-v').addEventListener('mousedown', (e) => {
       e.stopPropagation();
       const m = getMouseWorldPos(e);
       resizingItem = { type: 'eventH', item: ev, startY: m.y, startH: ev.height };
     });
 
+    // resize proportionnel
     card.querySelector('.resize-corner').addEventListener('mousedown', (e) => {
       e.stopPropagation();
       const m = getMouseWorldPos(e);
@@ -491,13 +516,15 @@ function drawPeriods() {
 
     div.addEventListener('click', (e) => { e.stopPropagation(); selectItem(p, 'period'); });
 
+    // drag vertical période
     div.addEventListener('mousedown', (e) => {
+      // si clic sur texte : pas drag barre (on laisse le texte sélectionnable)
       if (e.target.dataset && e.target.dataset.owner === 'period') return;
       const m = getMouseWorldPos(e);
-      // DÉPLACEMENT VERTICAL ILLIMITÉ
       draggedItem = { type: 'period', item: p, offsetY: m.y - p.y };
     });
 
+    // sélection texte
     div.querySelectorAll('[data-owner="period"]').forEach(el => {
       el.addEventListener('click', (e) => { e.stopPropagation(); selectGenericTextElement(el); });
     });
@@ -512,7 +539,7 @@ function ensureArtistBoxFitsText(a) {
   const nameSize = a.nameSize || 12;
   const datesSize = a.datesSize || 10;
 
-  const nameH = Math.ceil(nameSize * 1.2 * 2);
+  const nameH = Math.ceil(nameSize * 1.2 * 2);  // jusqu'à 2 lignes
   const datesH = Math.ceil(datesSize * 1.2 * 1);
 
   const minH = pad + nameH + datesH;
@@ -527,7 +554,7 @@ function drawArtists() {
 
     const birthX = yearToX(parseInt(a.birthYear));
     const deathX = yearToX(parseInt(a.deathYear));
-    const width = Math.max(80, deathX - birthX);
+    const width = Math.max(80, deathX - birthX); // min visuel
 
     const div = document.createElement('div');
     div.className = 'artist-box' + (selectedItem?.type === 'artist' && selectedItem?.id === a.id ? ' selected' : '');
@@ -553,25 +580,29 @@ function drawArtists() {
       <div class="artist-resize-corner" title="Proportionnel"></div>
     `;
 
+    // sélection item
     div.addEventListener('click', (e) => { e.stopPropagation(); selectItem(a, 'artist'); });
 
+    // drag vertical (boîte)
     div.addEventListener('mousedown', (e) => {
       if (e.target.classList.contains('artist-resize-left') ||
           e.target.classList.contains('artist-resize-right') ||
           e.target.classList.contains('artist-resize-bottom') ||
           e.target.classList.contains('artist-resize-corner')) return;
 
+      // si on clique sur texte : pas drag boîte
       if (e.target.dataset && e.target.dataset.owner === 'artist') return;
 
       const m = getMouseWorldPos(e);
-      // DÉPLACEMENT VERTICAL ILLIMITÉ
       draggedItem = { type: 'artist', item: a, offsetY: m.y - a.y };
     });
 
+    // sélection texte artiste
     div.querySelectorAll('[data-owner="artist"]').forEach(el => {
       el.addEventListener('click', (e) => { e.stopPropagation(); selectGenericTextElement(el); });
     });
 
+    // resize années (gauche/droite)
     div.querySelector('.artist-resize-left').addEventListener('mousedown', (e) => {
       e.stopPropagation();
       const m = getMouseWorldPos(e);
@@ -583,12 +614,14 @@ function drawArtists() {
       resizingItem = { type: 'artistRight', item: a, startX: m.x, startBirth: parseInt(a.birthYear), startDeath: parseInt(a.deathYear) };
     });
 
+    // resize hauteur
     div.querySelector('.artist-resize-bottom').addEventListener('mousedown', (e) => {
       e.stopPropagation();
       const m = getMouseWorldPos(e);
       resizingItem = { type: 'artistH', item: a, startY: m.y, startH: a.height };
     });
 
+    // resize proportionnel (largeur -> années + hauteur)
     div.querySelector('.artist-resize-corner').addEventListener('mousedown', (e) => {
       e.stopPropagation();
       const m = getMouseWorldPos(e);
@@ -613,24 +646,22 @@ function handleDrag(e) {
 
   if (draggedItem.type === 'event') {
     const ev = draggedItem.item;
-    // DÉPLACEMENT VERTICAL ILLIMITÉ !
-    ev.y = m.y - draggedItem.offsetY;
+    ev.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - ev.height);
     render(); saveToLocalStorageSilent();
     return;
   }
 
   if (draggedItem.type === 'period') {
     const p = draggedItem.item;
-    // DÉPLACEMENT VERTICAL ILLIMITÉ !
-    p.y = m.y - draggedItem.offsetY;
+    const h = p.height || 40;
+    p.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - h);
     render(); saveToLocalStorageSilent();
     return;
   }
 
   if (draggedItem.type === 'artist') {
     const a = draggedItem.item;
-    // DÉPLACEMENT VERTICAL ILLIMITÉ !
-    a.y = m.y - draggedItem.offsetY;
+    a.y = clamp(m.y - draggedItem.offsetY, 0, canvas.height - (a.height || 36));
     render(); saveToLocalStorageSilent();
     return;
   }
@@ -643,7 +674,7 @@ function handleResize(e) {
   if (resizingItem.type === 'eventW') {
     const ev = resizingItem.item;
     const dx = m.x - resizingItem.startX;
-    ev.width = Math.max(80, resizingItem.startW + dx);
+    ev.width = clamp(resizingItem.startW + dx, 80, 800);
     ensureEventCardFitsText(ev);
     render(); saveToLocalStorageSilent();
     return;
@@ -651,7 +682,7 @@ function handleResize(e) {
   if (resizingItem.type === 'eventH') {
     const ev = resizingItem.item;
     const dy = m.y - resizingItem.startY;
-    ev.height = Math.max(80, resizingItem.startH + dy);
+    ev.height = clamp(resizingItem.startH + dy, 80, 900);
     ensureEventCardFitsText(ev);
     render(); saveToLocalStorageSilent();
     return;
@@ -661,14 +692,14 @@ function handleResize(e) {
     const dx = m.x - resizingItem.startX;
     const dy = m.y - resizingItem.startY;
     const d = Math.max(dx, dy);
-    ev.width = Math.max(80, resizingItem.startW + d);
-    ev.height = Math.max(80, resizingItem.startH + d);
+    ev.width = clamp(resizingItem.startW + d, 80, 800);
+    ev.height = clamp(resizingItem.startH + d, 80, 900);
     ensureEventCardFitsText(ev);
     render(); saveToLocalStorageSilent();
     return;
   }
 
-  // Artists
+  // Artists (années + hauteur)
   if (resizingItem.type === 'artistLeft') {
     const a = resizingItem.item;
     const deltaYears = xToYear(yearToX(resizingItem.startBirth) + (m.x - resizingItem.startX)) - resizingItem.startBirth;
@@ -692,7 +723,7 @@ function handleResize(e) {
   if (resizingItem.type === 'artistH') {
     const a = resizingItem.item;
     const dy = m.y - resizingItem.startY;
-    a.height = Math.max(28, resizingItem.startH + dy);
+    a.height = clamp(resizingItem.startH + dy, 28, 300);
     ensureArtistBoxFitsText(a);
     render(); saveToLocalStorageSilent();
     return;
@@ -700,19 +731,28 @@ function handleResize(e) {
 
   if (resizingItem.type === 'artistP') {
     const a = resizingItem.item;
+
     const dx = m.x - resizingItem.startX;
     const dy = m.y - resizingItem.startY;
     const d = Math.max(dx, dy);
 
+    // proportionnel : on allonge la durée (droite) + hauteur
     const startBirth = resizingItem.startBirth;
     const startDeath = resizingItem.startDeath;
+    const startDur = startDeath - startBirth;
+
+    // convert d (pixels) -> années
     const yearAtPx = xToYear(yearToX(startDeath) + d);
     let newDeath = clamp(yearAtPx, startBirth + 1, settings.endYear);
+
+    // garder au moins 1 an
     if (newDeath <= startBirth) newDeath = startBirth + 1;
 
     a.deathYear = String(newDeath);
-    a.height = Math.max(28, resizingItem.startH + d);
+
+    a.height = clamp(resizingItem.startH + d, 28, 300);
     ensureArtistBoxFitsText(a);
+
     render(); saveToLocalStorageSilent();
     return;
   }
@@ -732,6 +772,7 @@ function editSelectedItem() {
   if (selectedItem.type === 'event') {
     const ev = events.find(x => x.id === selectedItem.id);
     if (!ev) return;
+
     document.getElementById('eventModalTitle').textContent = "Modifier l'événement";
     document.getElementById('eventName').value = ev.name;
     document.getElementById('eventYear').value = ev.year;
@@ -744,6 +785,7 @@ function editSelectedItem() {
   if (selectedItem.type === 'period') {
     const p = periods.find(x => x.id === selectedItem.id);
     if (!p) return;
+
     document.getElementById('periodModalTitle').textContent = "Modifier la période";
     document.getElementById('periodName').value = p.name;
     document.getElementById('periodStart').value = p.startYear;
@@ -758,6 +800,7 @@ function editSelectedItem() {
   if (selectedItem.type === 'artist') {
     const a = artists.find(x => x.id === selectedItem.id);
     if (!a) return;
+
     document.getElementById('artistModalTitle').textContent = "Modifier l'artiste";
     document.getElementById('artistName').value = a.name;
     document.getElementById('artistBirth').value = a.birthYear;
@@ -769,9 +812,11 @@ function editSelectedItem() {
 
 function deleteSelectedItem() {
   if (!selectedItem) return;
+
   if (selectedItem.type === 'event') events = events.filter(x => x.id !== selectedItem.id);
   if (selectedItem.type === 'period') periods = periods.filter(x => x.id !== selectedItem.id);
   if (selectedItem.type === 'artist') artists = artists.filter(x => x.id !== selectedItem.id);
+
   selectedItem = null;
   document.getElementById('selectedItemActions').style.display = 'none';
   clearSelectedText();
@@ -836,8 +881,12 @@ function saveEvent() {
   } else {
     const ev = {
       id: Date.now(),
-      name, year, image: img,
-      y: 100, width: 140, height: 160,
+      name,
+      year,
+      image: img,
+      y: 100,
+      width: 140,
+      height: 160,
       customTitleSize: 12,
       customYearSize: 10
     };
@@ -874,10 +923,16 @@ function savePeriod() {
   } else {
     periods.push({
       id: Date.now(),
-      name, startYear, endYear, color,
-      y: 50, height: height,
-      nameSize: 13, datesSize: 11,
-      nameBold: true, datesBold: false
+      name,
+      startYear,
+      endYear,
+      color,
+      y: 50,
+      height: height,
+      nameSize: 13,
+      datesSize: 11,
+      nameBold: true,
+      datesBold: false
     });
   }
 
@@ -907,11 +962,15 @@ function saveArtist() {
   } else {
     const a = {
       id: Date.now(),
-      name, birthYear, deathYear,
+      name,
+      birthYear,
+      deathYear,
       y: settings.timelineY - 120,
       height: 44,
-      nameSize: 12, datesSize: 10,
-      nameBold: true, datesBold: false
+      nameSize: 12,
+      datesSize: 10,
+      nameBold: true,
+      datesBold: false
     };
     ensureArtistBoxFitsText(a);
     artists.push(a);
@@ -953,7 +1012,6 @@ function saveToFile() {
     document.body.removeChild(a);
 
     setTimeout(() => URL.revokeObjectURL(url), 100);
-    alert('Sauvegarde téléchargée ! 💾');
   } catch (err) {
     alert('Erreur sauvegarde : ' + err.message);
   }
@@ -974,6 +1032,7 @@ function loadFromFile(event) {
 
       if (data.settings) settings = { ...settings, ...data.settings };
 
+      // sync UI
       document.getElementById('startYear').value = settings.startYear;
       document.getElementById('endYear').value = settings.endYear;
       document.getElementById('scale').value = settings.scale;
@@ -988,7 +1047,7 @@ function loadFromFile(event) {
       resizeCanvas();
       applyBackgroundToContainer();
       render();
-      alert('Sauvegarde chargée ! 📂');
+      saveToLocalStorageSilent();
     } catch (err) {
       alert('Erreur chargement : ' + err.message);
     }
@@ -1001,13 +1060,15 @@ function loadFromFile(event) {
 // -------------------- localStorage --------------------
 function saveToLocalStorage() {
   localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
-  alert('Sauvegarde réussie dans le navigateur ! 💾');
+  alert('Sauvegarde réussie dans le navigateur.');
 }
 
 function saveToLocalStorageSilent() {
   try {
     localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
-  } catch (e) {}
+  } catch (e) {
+    // silencieux
+  }
 }
 
 function loadFromLocalStorage() {
@@ -1035,7 +1096,9 @@ function loadFromLocalStorage() {
     resizeCanvas();
     applyBackgroundToContainer();
     render();
-  } catch (e) {}
+  } catch (e) {
+    // silencieux
+  }
 }
 
 // -------------------- Sécurité HTML --------------------
