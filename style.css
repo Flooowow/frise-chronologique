@@ -14,50 +14,41 @@ body {
   background-size: 37.8px 37.8px;
   background-position: 0 0;
 }
-// ==================== ARTISTS ====================
-function drawArtists() {
-  document.querySelectorAll('.artist-line').forEach(el => el.remove());
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  left: 0; top: 0;
+  width: 360px; height: 100vh;
+  background: white;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  transition: transform 0.3s;
+  z-index: 1000;
+  overflow-y: auto;
+}
 
-  artists.forEach(a => {
-    const birthX = yearToX(parseInt(a.birthYear));
-    const deathX = yearToX(parseInt(a.deathYear));
-    const width = deathX - birthX;
-    const div = document.createElement('div');
-    div.className = 'artist-line' + (selectedItem?.type === 'artist' && selectedItem?.id === a.id ? ' selected' : '');
-    div.style.left = birthX + 'px';
-    div.style.top = a.y + 'px';
-    div.style.width = width + 'px';
+.sidebar.closed { transform: translateX(-360px); }
 
-    const nameSize = a.nameSize || 12;
-    const datesSize = a.datesSize || 10;
-    const nameBold = a.nameBold ?? true;
-    const datesBold = a.datesBold ?? false;
+.toggle-btn {
+  position: fixed;
+  right: auto;
+  left: 360px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 10px;
+  cursor: pointer;
+  border-radius: 0 8px 8px 0;
+  font-size: 18px;
+}
 
-    div.innerHTML = `
-      <div class="artist-marker" style="left: 0;"></div>
-      <div class="artist-marker" style="left: ${width - 10}px;"></div>
-      <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
-           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.name)}</div>
-      <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
-           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
-    `;
+.sidebar.closed ~ * .toggle-btn,
+.sidebar.closed .toggle-btn {
+  left: 0 !important;
+}
 
-    div.addEventListener('click', (e) => {
-      e.stopPropagation();
-      selectItem(a, 'artist');
-    });
-
-    div.addEventListener('mousedown', (e) => {
-      if (e.target.dataset?.owner === 'artist') return;
-      const mousePos = getMouseWorldPos(e);
-      draggedItem = { type: 'artist', item: a, offsetY: mousePos.y - a.y };
-    });
-
-    div.querySelectorAll('[data-owner="artist"]').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        selectTextElement(el);
-      });
+.sidebar-content { padding: 20px; }
     });
 
     eventsContainer.appendChild(div);
