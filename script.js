@@ -102,11 +102,7 @@ function setupEventListeners() {
   updateSetting('pagesH', 'pagesH');
   updateSetting('pagesV', 'pagesV');
 
-  document.getElementById('timelineY').addEventListener('input', (e) => {
-    settings.timelineY = parseInt(e.target.value);
-    render();
-    saveToLocalStorageSilent();
-  });
+  document.getElementById('timelineY').addEventListener('input', (e) => { settings.timelineY = parseInt(e.target.value); render(); saveToLocalStorageSilent(); });
 
   document.getElementById('timelineThickness').addEventListener('input', (e) => {
     settings.timelineThickness = parseInt(e.target.value);
