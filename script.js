@@ -419,14 +419,13 @@ function drawArtists() {
     const datesBold = a.datesBold ?? false;
 
     div.innerHTML = `
-      div.innerHTML = `
-  <div class="artist-marker" style="left: 0;"></div>
-  <div class="artist-marker" style="left: ${width - 10}px;"></div>
-  <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
-       style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.name)}</div>
-  <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
-       style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
-`;
+      <div class="artist-marker" style="left: 0;"></div>
+      <div class="artist-marker" style="left: ${width - 10}px;"></div>
+      <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
+           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.name)}</div>
+      <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
+           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
+    `;
 
     div.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -435,8 +434,8 @@ function drawArtists() {
 
     div.addEventListener('mousedown', (e) => {
       if (e.target.dataset?.owner === 'artist') return;
-      const m = getMouseWorldPos(e);
-      draggedItem = { type: 'artist', item: a, offsetY: m.y - a.y };
+      const mousePos = getMouseWorldPos(e);
+      draggedItem = { type: 'artist', item: a, offsetY: mousePos.y - a.y };
     });
 
     div.querySelectorAll('[data-owner="artist"]').forEach(el => {
@@ -449,8 +448,6 @@ function drawArtists() {
     eventsContainer.appendChild(div);
   });
 }
-
-// ==================== DRAG & RESIZE ====================
 function handleDrag(e) {
   const m = getMouseWorldPos(e);
   const item = draggedItem.item;
