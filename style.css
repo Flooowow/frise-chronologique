@@ -30,8 +30,9 @@ body {
 .sidebar.closed { transform: translateX(-320px); }
 
 .toggle-btn {
-  position: absolute;
-  right: -40px;
+  position: fixed;
+  right: auto;
+  left: 320px;
   top: 50%;
   transform: translateY(-50%);
   background: #2563eb;
@@ -41,6 +42,9 @@ body {
   cursor: pointer;
   border-radius: 0 8px 8px 0;
   font-size: 18px;
+.sidebar.closed ~ * .toggle-btn,
+.sidebar.closed .toggle-btn {
+  left: 0 !important;
 }
 
 .sidebar-content { padding: 20px; }
