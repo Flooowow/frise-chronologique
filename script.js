@@ -743,3 +743,76 @@ function loadFromFile(event) {
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target.result);
+      events = data.events || [];
+      periods = data.periods || [];
+      artists = data.artists || [];
+      if (data.settings) settings = { ...settings, ...data.settings };
+      
+      // Sync UI
+      document.getElementById('startYear').value = settings.startYear;
+      document.getElementById('endYear').value = settings.endYear;
+      document.getElementById('scale').value = settings.scale;
+      document.getElementById('timelineY').value = settings.timelineY;
+      document.getElementById('timelineThickness').value = settings.timelineThickness;
+      document.getElementById('zoomLevel').value = settings.zoom;
+      document.getElementById('pagesH').value = settings.pagesH;
+      document.getElementById('pagesV').value = settings.pagesV;
+      document.getElementById('bgColor').value = settings.bgColor;
+      document.getElementById('showGrid').checked = !!settings.showGrid;
+      
+      resizeCanvas();
+      applyBackgroundToContainer();
+      render();
+      alert('Sauvegarde chargée ! 📂');
+    } catch (err) {
+      alert('Erreur: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function saveToLocalStorage() {
+  localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
+  alert('Sauvegarde navigateur réussie ! 💾');
+}
+
+function saveToLocalStorageSilent() {
+  try {
+    localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
+  } catch (e) {}
+}
+
+function loadFromLocalStorage() {
+  const raw = localStorage.getItem('timelineData');
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    events = data.events || [];
+    periods = data.periods || [];
+    artists = data.artists || [];
+    if (data.settings) settings = { ...settings, ...data.settings };
+    
+    document.getElementById('startYear').value = settings.startYear;
+    document.getElementById('endYear').value = settings.endYear;
+    document.getElementById('scale').value = settings.scale;
+    document.getElementById('timelineY').value = settings.timelineY;
+    document.getElementById('timelineThickness').value = settings.timelineThickness;
+    document.getElementById('zoomLevel').value = settings.zoom;
+    document.getElementById('pagesH').value = settings.pagesH;
+    document.getElementById('pagesV').value = settings.pagesV;
+    document.getElementById('bgColor').value = settings.bgColor;
+    document.getElementById('showGrid').checked = !!settings.showGrid;
+    
+    resizeCanvas();
+    applyBackgroundToContainer();
+    render();
+  } catch (e) {}
+}
+
+// ==================== START ====================
+window.addEventListener('load', init);
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  render();
+});
