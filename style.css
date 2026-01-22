@@ -24,12 +24,10 @@ body {
   box-shadow: 2px 0 10px rgba(0,0,0,0.1);
   transition: transform 0.3s;
   z-index: 1000;
-  overflow-y: auto;
+.sidebar.closed { transform: translateX(-360px); }
 }
 
-.sidebar.closed { transform: translateX(-320px); }
-
-.toggle-btn {
+..toggle-btn {
   position: fixed;
   right: auto;
   left: 360px;
@@ -37,6 +35,17 @@ body {
   transform: translateY(-50%);
   background: #2563eb;
   color: white;
+  border: none;
+  padding: 12px 10px;
+  cursor: pointer;
+  border-radius: 0 8px 8px 0;
+  font-size: 18px;
+}
+
+.sidebar.closed ~ * .toggle-btn,
+.sidebar.closed .toggle-btn {
+  left: 0 !important;
+}
   border: none;
   padding: 12px 10px;
   cursor: pointer;
