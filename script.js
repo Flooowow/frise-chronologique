@@ -83,7 +83,9 @@ function setupEventListeners() {
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('closed');
     container.classList.toggle('closed');
-    document.getElementById('toggleMenu').textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
+const toggleBtn = document.getElementById('toggleMenu');
+toggleBtn.textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
+toggleBtn.style.left = sidebar.classList.contains('closed') ? '0' : 'auto';
   });
 
   // Settings
