@@ -342,7 +342,7 @@ function drawEvents() {
            style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
     `;
       e.stopPropagation();
-      const m = getMouseWorldPos(e);
+      m = getMouseWorldPos(e);
       resizingItem = { type: 'eventP', item: ev, startX: m.x, startY: m.y, startW: ev.width, startH: ev.height };
     });
 
