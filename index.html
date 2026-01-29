@@ -56,7 +56,7 @@
 
       <div class="form-group">
         <label for="bgColor">Couleur du fond</label>
-        <input type="color" id="bgColor" value="#ffffff" />
+        <input type="color" id="bgColor" value="#F5F0E8" />
         <button class="btn btn-secondary" onclick="applyBackgroundColor()" style="margin-top: 5px;">
           Appliquer
         </button>
@@ -72,14 +72,14 @@
       <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
       <button class="btn btn-secondary" onclick="resetView()">🔄 Réinitialiser la vue</button>
       
-      <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;" />
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
       
       <h3>Ajouter des éléments</h3>
       <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
       <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
       <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
 
-      <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;" />
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
       <h3>Sauvegarde</h3>
       <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
@@ -88,9 +88,9 @@
       <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder (navigateur)</button>
       <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger (navigateur)</button>
 
-      <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;" />
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
-      <div id="textStyleTools" style="display:none; padding: 15px; background: #f3f4f6; border-radius: 8px;">
+      <div id="textStyleTools" style="display:none; padding: 15px; background: #F5F0E8; border-radius: 8px;">
         <h3 style="margin-bottom: 10px;">Texte sélectionné</h3>
         <div class="form-group">
           <label for="selectedTextSize">Taille</label>
@@ -110,9 +110,9 @@
         <button class="btn btn-danger" onclick="deleteSelectedItem()">🗑️ Supprimer</button>
       </div>
 
-      <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;" />
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
-      <div style="padding: 12px; background: #f9fafb; border-radius: 6px; font-size: 12px; color: #6b7280;">
+      <div style="padding: 12px; background: #E8DCC8; border-radius: 6px; font-size: 12px; color: #2D3436;">
         <strong>Raccourcis clavier :</strong>
         <ul style="margin-top: 8px; padding-left: 20px;">
           <li><kbd>ESC</kbd> - Fermer / Désélectionner</li>
@@ -152,7 +152,7 @@
       <input type="text" id="periodName" placeholder="Nom de la période" aria-label="Nom de la période" />
       <input type="number" id="periodStart" placeholder="Année début" aria-label="Année de début" />
       <input type="number" id="periodEnd" placeholder="Année fin" aria-label="Année de fin" />
-      <input type="color" id="periodColor" value="#4299e1" aria-label="Couleur de la période" />
+      <input type="color" id="periodColor" value="#7C1D1D" aria-label="Couleur de la période" />
       <div class="form-group">
         <label for="periodHeight">Épaisseur de la barre</label>
         <input type="range" id="periodHeight" min="20" max="120" value="40" />

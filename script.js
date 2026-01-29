@@ -14,7 +14,7 @@ let settings = {
   zoom: 1,
   pagesH: 3,
   pagesV: 2,
-  bgColor: '#ffffff',
+  bgColor: '#F5F0E8',
   showGrid: true
 };
 
@@ -24,6 +24,7 @@ let dragStart = { x: 0, y: 0 };
 let viewOffset = { x: 0, y: 0 };
 let draggedItem = null;
 let resizingItem = null;
+let resizingPeriod = null; // 🔧 Nouveau pour les périodes
 let editMode = false;
 
 const canvas = document.getElementById('timeline');
@@ -223,6 +224,8 @@ function setupEventListeners() {
       handleDrag(e);
     } else if (resizingItem) {
       handleResize(e);
+    } else if (resizingPeriod) {
+      handlePeriodResize(e);
     }
   });
 
@@ -231,6 +234,7 @@ function setupEventListeners() {
     container.classList.remove('grabbing');
     draggedItem = null;
     resizingItem = null;
+    resizingPeriod = null;
   });
 
   // Image preview
@@ -281,7 +285,7 @@ function setupEventListeners() {
 function applyBackgroundToContainer() {
   container.style.backgroundColor = settings.bgColor;
   if (settings.showGrid) {
-    container.style.backgroundImage = 'linear-gradient(to right, #d0d0d0 1px, transparent 1px), linear-gradient(to bottom, #d0d0d0 1px, transparent 1px)';
+    container.style.backgroundImage = 'linear-gradient(to right, #E8DCC8 1px, transparent 1px), linear-gradient(to bottom, #E8DCC8 1px, transparent 1px)';
     container.style.backgroundSize = '37.8px 37.8px';
   } else {
     container.style.backgroundImage = 'none';
@@ -307,17 +311,17 @@ function drawTimeline() {
   const y = settings.timelineY;
   const half = settings.timelineThickness / 2;
 
-  // Barre principale
-  ctx.fillStyle = '#ffffff';
+  // Barre principale avec couleur crème
+  ctx.fillStyle = '#F5F0E8';
   ctx.fillRect(0, y - half, canvas.width, settings.timelineThickness);
-  ctx.strokeStyle = '#000000';
+  ctx.strokeStyle = '#2D3436'; // Anthracite
   ctx.lineWidth = 5;
   ctx.strokeRect(0, y - half, canvas.width, settings.timelineThickness);
 
-  // Graduations
-  ctx.strokeStyle = '#000000';
+  // Graduations avec accents or
+  ctx.strokeStyle = '#D4AF37'; // Or
   ctx.lineWidth = 3;
-  ctx.fillStyle = '#000000';
+  ctx.fillStyle = '#2D3436'; // Anthracite
   const fontSize = Math.max(14, Math.min(22, settings.timelineThickness * 0.45));
   ctx.font = `bold ${fontSize}px Arial`;
   ctx.textAlign = 'center';
@@ -437,7 +441,7 @@ function drawPeriods() {
     div.style.top = p.y + 'px';
     div.style.width = (endX - startX) + 'px';
     div.style.height = (p.height || 40) + 'px';
-    div.style.background = p.color || '#4299e1';
+    div.style.background = p.color || '#7C1D1D';
 
     const nameSize = p.nameSize || 13;
     const datesSize = p.datesSize || 11;
@@ -445,6 +449,8 @@ function drawPeriods() {
     const datesBold = p.datesBold ?? false;
 
     div.innerHTML = `
+      <div class="period-resize-handle left"></div>
+      <div class="period-resize-handle right"></div>
       <div class="period-name" data-owner="period" data-id="${p.id}" data-key="name"
            style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}">${escapeHtml(p.name)}</div>
       <div class="period-dates" data-owner="period" data-id="${p.id}" data-key="dates"
@@ -457,6 +463,8 @@ function drawPeriods() {
     });
 
     div.addEventListener('mousedown', (e) => {
+      // Ignorer si c'est un handle de resize ou du texte
+      if (e.target.classList.contains('period-resize-handle')) return;
       if (e.target.dataset?.owner === 'period') return;
       const m = getMouseWorldPos(e);
       draggedItem = { type: 'period', item: p, offsetY: m.y - p.y };
@@ -469,8 +477,64 @@ function drawPeriods() {
       });
     });
 
+    // 🔧 HANDLES DE REDIMENSIONNEMENT
+    const leftHandle = div.querySelector('.period-resize-handle.left');
+    const rightHandle = div.querySelector('.period-resize-handle.right');
+
+    leftHandle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingPeriod = {
+        item: p,
+        side: 'left',
+        startX: m.x,
+        originalStart: parseInt(p.startYear)
+      };
+    });
+
+    rightHandle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingPeriod = {
+        item: p,
+        side: 'right',
+        startX: m.x,
+        originalEnd: parseInt(p.endYear)
+      };
+    });
+
     eventsContainer.appendChild(div);
   });
+}
+
+// 🔧 GESTION DU REDIMENSIONNEMENT DES PÉRIODES
+function handlePeriodResize(e) {
+  if (!resizingPeriod) return;
+  
+  const m = getMouseWorldPos(e);
+  const deltaX = m.x - resizingPeriod.startX;
+  const deltaYear = xToYear(deltaX) - xToYear(0);
+  
+  if (resizingPeriod.side === 'left') {
+    const newStart = resizingPeriod.originalStart + deltaYear;
+    const currentEnd = parseInt(resizingPeriod.item.endYear);
+    
+    // Empêcher que le début dépasse la fin
+    if (newStart < currentEnd - 10) { // Minimum 10 ans
+      resizingPeriod.item.startYear = String(newStart);
+    }
+  } else if (resizingPeriod.side === 'right') {
+    const newEnd = resizingPeriod.originalEnd + deltaYear;
+    const currentStart = parseInt(resizingPeriod.item.startYear);
+    
+    // Empêcher que la fin soit avant le début
+    if (newEnd > currentStart + 10) { // Minimum 10 ans
+      resizingPeriod.item.endYear = String(newEnd);
+    }
+  }
+  
+  render();
+  saveToLocalStorageSilent();
 }
 
 // ==================== ARTISTS ====================
@@ -622,7 +686,7 @@ function showPeriodModal() {
   document.getElementById('periodName').value = '';
   document.getElementById('periodStart').value = '';
   document.getElementById('periodEnd').value = '';
-  document.getElementById('periodColor').value = '#4299e1';
+  document.getElementById('periodColor').value = '#7C1D1D';
   document.getElementById('periodHeight').value = '40';
   document.getElementById('periodHeightValue').textContent = '40px';
 }
@@ -760,7 +824,7 @@ function editSelectedItem() {
     document.getElementById('periodName').value = p.name;
     document.getElementById('periodStart').value = p.startYear;
     document.getElementById('periodEnd').value = p.endYear;
-    document.getElementById('periodColor').value = p.color || '#4299e1';
+    document.getElementById('periodColor').value = p.color || '#7C1D1D';
     document.getElementById('periodHeight').value = p.height || 40;
     document.getElementById('periodHeightValue').textContent = (p.height || 40) + 'px';
     document.getElementById('periodModal').classList.add('show');

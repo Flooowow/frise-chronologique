@@ -3,7 +3,7 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   overflow: hidden;
-  background: #f5f5f5;
+  background: #F5F0E8; /* Crème */
 }
 
 /* ==================== TOAST NOTIFICATIONS ==================== */
@@ -11,11 +11,11 @@ body {
   position: fixed;
   bottom: 30px;
   right: 30px;
-  background: #1f2937;
-  color: white;
+  background: #2D3436; /* Anthracite */
+  color: #F5F0E8; /* Crème */
   padding: 16px 24px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 12px rgba(124, 29, 29, 0.3);
   z-index: 10000;
   font-size: 14px;
   font-weight: 500;
@@ -31,14 +31,14 @@ body {
 }
 
 .toast-success { background: #10b981; }
-.toast-error { background: #ef4444; }
-.toast-info { background: #3b82f6; }
+.toast-error { background: #7C1D1D; } /* Bordeaux */
+.toast-info { background: #2D3436; } /* Anthracite */
 
 /* Quadrillage en fond (≈ 1 cm à 96dpi) */
 .canvas-container.grid {
   background-image:
-    linear-gradient(to right, #d0d0d0 1px, transparent 1px),
-    linear-gradient(to bottom, #d0d0d0 1px, transparent 1px);
+    linear-gradient(to right, #E8DCC8 1px, transparent 1px),
+    linear-gradient(to bottom, #E8DCC8 1px, transparent 1px);
   background-size: 37.8px 37.8px;
   background-position: 0 0;
 }
@@ -48,11 +48,12 @@ body {
   position: fixed;
   left: 0; top: 0;
   width: 360px; height: 100vh;
-  background: white;
-  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  background: #F5F0E8; /* Crème */
+  box-shadow: 2px 0 10px rgba(124, 29, 29, 0.15);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
   overflow-y: auto;
+  border-right: 2px solid #D4AF37; /* Or */
 }
 
 .sidebar.closed { transform: translateX(-360px); }
@@ -63,20 +64,20 @@ body {
   left: 360px;
   top: 50%;
   transform: translateY(-50%);
-  background: #2563eb;
-  color: white;
+  background: #7C1D1D; /* Bordeaux */
+  color: #F5F0E8; /* Crème */
   border: none;
   padding: 12px 10px;
   cursor: pointer;
   border-radius: 0 8px 8px 0;
   font-size: 18px;
   transition: all 0.3s;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+  box-shadow: 2px 0 8px rgba(124, 29, 29, 0.3);
 }
 
 .toggle-btn:hover {
-  background: #1d4ed8;
-  box-shadow: 2px 0 12px rgba(0,0,0,0.25);
+  background: #5a1515;
+  box-shadow: 2px 0 12px rgba(124, 29, 29, 0.5);
 }
 
 .sidebar.closed ~ * .toggle-btn,
@@ -88,14 +89,16 @@ body {
 
 .sidebar h2 {
   margin-bottom: 20px;
-  color: #1f2937;
+  color: #2D3436; /* Anthracite */
   font-size: 20px;
+  border-bottom: 2px solid #D4AF37; /* Or */
+  padding-bottom: 10px;
 }
 
 .sidebar h3 {
   margin: 15px 0 10px;
   font-size: 16px;
-  color: #374151;
+  color: #7C1D1D; /* Bordeaux */
 }
 
 /* ==================== FORMS ==================== */
@@ -104,8 +107,9 @@ body {
 .form-group label {
   display: block;
   margin-bottom: 5px;
-  color: #6b7280;
+  color: #2D3436; /* Anthracite */
   font-size: 14px;
+  font-weight: 500;
 }
 
 .form-group input[type="checkbox"] { width: auto; margin-right: 8px; }
@@ -113,23 +117,24 @@ body {
 .form-group span {
   display: inline-block;
   margin-left: 10px;
-  color: #374151;
+  color: #7C1D1D; /* Bordeaux */
   font-weight: 600;
 }
 
 .form-group input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #E8DCC8; /* Beige */
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.2s;
+  background: white;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+  border-color: #D4AF37; /* Or */
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 /* ==================== BUTTONS ==================== */
@@ -145,19 +150,19 @@ body {
   transition: all 0.2s;
 }
 
-.btn-primary { background: #2563eb; color: white; }
-.btn-blue { background: #3b82f6; color: white; }
-.btn-purple { background: #9333ea; color: white; }
-.btn-green { background: #10b981; color: white; }
-.btn-warning { background: #f59e0b; color: white; }
-.btn-danger { background: #ef4444; color: white; }
-.btn-success { background: #22c55e; color: white; }
-.btn-secondary { background: #6b7280; color: white; }
+.btn-primary { background: #7C1D1D; color: #F5F0E8; } /* Bordeaux */
+.btn-blue { background: #2D3436; color: #F5F0E8; } /* Anthracite */
+.btn-purple { background: #7C1D1D; color: #F5F0E8; } /* Bordeaux */
+.btn-green { background: #2D3436; color: #F5F0E8; } /* Anthracite */
+.btn-warning { background: #D4AF37; color: #2D3436; } /* Or */
+.btn-danger { background: #7C1D1D; color: #F5F0E8; } /* Bordeaux */
+.btn-success { background: #2D3436; color: #F5F0E8; } /* Anthracite */
+.btn-secondary { background: #E8DCC8; color: #2D3436; } /* Beige */
 
 .btn:hover { 
   opacity: 0.9; 
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(124, 29, 29, 0.3);
 }
 
 .btn:active {
@@ -170,7 +175,7 @@ body {
   left: 360px; top: 0; right: 0; bottom: 0;
   overflow: auto;
   cursor: grab;
-  background: #ffffff;
+  background: #F5F0E8; /* Crème */
   transition: left 0.3s;
 }
 
@@ -194,14 +199,14 @@ body {
 .event-card.selected,
 .period-bar.selected,
 .artist-line.selected {
-  box-shadow: 0 0 0 4px rgba(59,130,246,0.4), 0 8px 20px rgba(0,0,0,0.2);
-  border-color: #2563eb !important;
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.6), 0 8px 20px rgba(124, 29, 29, 0.3);
+  border-color: #D4AF37 !important; /* Or */
   z-index: 100;
 }
 
 .selected-text {
-  background: rgba(59,130,246,0.3) !important;
-  outline: 3px solid rgba(59,130,246,0.9) !important;
+  background: rgba(212, 175, 55, 0.2) !important;
+  outline: 3px solid rgba(212, 175, 55, 0.9) !important;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -209,11 +214,11 @@ body {
 /* ==================== EVENTS ==================== */
 .event-card {
   position: absolute;
-  background: white;
-  border: 2px solid #d1d5db;
+  background: #F5F0E8; /* Crème */
+  border: 2px solid #E8DCC8; /* Beige */
   border-radius: 8px;
   padding: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(45, 52, 54, 0.15);
   cursor: grab;
   pointer-events: all;
   user-select: none;
@@ -224,7 +229,8 @@ body {
 }
 
 .event-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(124, 29, 29, 0.2);
+  border-color: #D4AF37; /* Or */
 }
 
 .event-card:active { cursor: grabbing; }
@@ -237,6 +243,7 @@ body {
   border-radius: 4px;
   pointer-events: none;
   user-select: none;
+  border: 1px solid #E8DCC8;
 }
 
 .event-title,
@@ -254,11 +261,11 @@ body {
 
 .event-title:hover,
 .event-year:hover {
-  background: rgba(59,130,246,0.1);
+  background: rgba(212, 175, 55, 0.15);
 }
 
-.event-title { font-size: 12px; font-weight: 600; }
-.event-year { font-size: 10px; color: #6b7280; }
+.event-title { font-size: 12px; font-weight: 600; color: #2D3436; }
+.event-year { font-size: 10px; color: #7C1D1D; }
 
 /* Resize handle */
 .resize-corner {
@@ -266,20 +273,20 @@ body {
   bottom: 0; right: 0;
   width: 20px; height: 20px;
   cursor: nwse-resize;
-  background: linear-gradient(135deg, transparent 50%, rgba(37,99,235,0.4) 50%);
+  background: linear-gradient(135deg, transparent 50%, rgba(212, 175, 55, 0.5) 50%);
   border-bottom-right-radius: 6px;
   transition: background 0.2s;
 }
 
 .resize-corner:hover {
-  background: linear-gradient(135deg, transparent 50%, rgba(37,99,235,0.7) 50%);
+  background: linear-gradient(135deg, transparent 50%, rgba(212, 175, 55, 0.8) 50%);
 }
 
 /* Ligne de connexion */
 .connection-line {
   position: absolute;
   width: 2px;
-  background: repeating-linear-gradient(to bottom, #666 0px, #666 4px, transparent 4px, transparent 8px);
+  background: repeating-linear-gradient(to bottom, #7C1D1D 0px, #7C1D1D 4px, transparent 4px, transparent 8px);
   pointer-events: none;
   opacity: 0.6;
 }
@@ -289,7 +296,7 @@ body {
   position: absolute;
   opacity: 0.85;
   border-radius: 4px;
-  border: 2px solid rgba(0,0,0,0.15);
+  border: 2px solid rgba(45, 52, 54, 0.2);
   cursor: grab;
   pointer-events: all;
   user-select: none;
@@ -298,7 +305,7 @@ body {
 
 .period-bar:hover {
   opacity: 0.95;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 12px rgba(124, 29, 29, 0.25);
 }
 
 .period-bar:active { cursor: grabbing; }
@@ -311,17 +318,68 @@ body {
   padding: 2px 4px;
   border-radius: 3px;
   transition: background 0.2s;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
 }
 
 .period-name:hover, .period-dates:hover {
   background: rgba(0,0,0,0.15);
 }
 
+/* 🔧 POIGNÉES DE REDIMENSIONNEMENT DES PÉRIODES */
+.period-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: ew-resize;
+  background: rgba(212, 175, 55, 0); /* Or transparent par défaut */
+  transition: background 0.2s;
+  z-index: 10;
+}
+
+.period-resize-handle.left {
+  left: 0;
+  border-left: 3px solid transparent;
+  border-radius: 4px 0 0 4px;
+}
+
+.period-resize-handle.right {
+  right: 0;
+  border-right: 3px solid transparent;
+  border-radius: 0 4px 4px 0;
+}
+
+.period-bar:hover .period-resize-handle {
+  background: rgba(212, 175, 55, 0.3);
+}
+
+.period-bar:hover .period-resize-handle.left {
+  border-left-color: #D4AF37; /* Or */
+}
+
+.period-bar:hover .period-resize-handle.right {
+  border-right-color: #D4AF37; /* Or */
+}
+
+.period-resize-handle:hover {
+  background: rgba(212, 175, 55, 0.5) !important;
+}
+
+.period-resize-handle.left:hover {
+  border-left-color: #D4AF37 !important;
+  border-left-width: 4px !important;
+}
+
+.period-resize-handle.right:hover {
+  border-right-color: #D4AF37 !important;
+  border-right-width: 4px !important;
+}
+
 /* ==================== ARTISTS (ligne) ==================== */
 .artist-line {
   position: absolute;
   height: 2px;
-  border-top: 2px dashed #666;
+  border-top: 2px dashed #7C1D1D; /* Bordeaux */
   pointer-events: all;
   cursor: move;
   padding: 30px 0;
@@ -329,14 +387,14 @@ body {
 }
 
 .artist-line:hover {
-  border-top-color: #000;
+  border-top-color: #2D3436; /* Anthracite */
   border-top-width: 3px;
 }
 
 .artist-line.selected {
-  border-top: 4px dashed #2563eb;
-  background: rgba(59,130,246,0.1);
-  outline: 3px solid rgba(59,130,246,0.5);
+  border-top: 4px dashed #D4AF37; /* Or */
+  background: rgba(212, 175, 55, 0.1);
+  outline: 3px solid rgba(212, 175, 55, 0.5);
   border-radius: 4px;
 }
 
@@ -344,11 +402,12 @@ body {
   position: absolute;
   width: 10px;
   height: 10px;
-  background: #666;
+  background: #7C1D1D; /* Bordeaux */
   border-radius: 50%;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
+  border: 2px solid #D4AF37; /* Or */
 }
 
 .artist-name, .artist-dates {
@@ -356,21 +415,23 @@ body {
   pointer-events: all;
   cursor: text;
   padding: 2px 6px;
-  background: rgba(255,255,255,0.95);
+  background: rgba(245, 240, 232, 0.95);
   border-radius: 3px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #E8DCC8;
   transition: background 0.2s;
 }
 
 .artist-name:hover, .artist-dates:hover {
-  background: rgba(59,130,246,0.1);
-  border-color: #3b82f6;
+  background: rgba(212, 175, 55, 0.2);
+  border-color: #D4AF37;
 }
 
 .artist-name {
   top: -30px;
   left: 50%;
   transform: translateX(-50%);
+  color: #2D3436; /* Anthracite */
+  font-weight: 600;
 }
 
 .artist-dates {
@@ -378,7 +439,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   font-size: 10px;
-  color: #6b7280;
+  color: #7C1D1D; /* Bordeaux */
 }
 
 /* ==================== MODALS ==================== */
@@ -386,7 +447,7 @@ body {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(45, 52, 54, 0.6);
   backdrop-filter: blur(4px);
   z-index: 2000;
   justify-content: center;
@@ -402,13 +463,14 @@ body {
 }
 
 .modal-content {
-  background: white;
+  background: #F5F0E8; /* Crème */
   padding: 30px;
   border-radius: 12px;
   width: 90%;
   max-width: 420px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  box-shadow: 0 20px 40px rgba(124, 29, 29, 0.3);
   animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid #D4AF37; /* Or */
 }
 
 @keyframes slideUp {
@@ -419,23 +481,26 @@ body {
 .modal-content h3 { 
   margin-bottom: 20px; 
   font-size: 20px;
-  color: #1f2937;
+  color: #2D3436; /* Anthracite */
+  border-bottom: 2px solid #D4AF37; /* Or */
+  padding-bottom: 10px;
 }
 
 .modal-content input {
   width: 100%;
   padding: 10px 12px;
   margin-bottom: 15px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #E8DCC8;
   border-radius: 6px;
   font-size: 14px;
   transition: border-color 0.2s;
+  background: white;
 }
 
 .modal-content input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+  border-color: #D4AF37; /* Or */
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 .modal-buttons {
@@ -455,18 +520,18 @@ body {
 
 .sidebar::-webkit-scrollbar-track,
 .canvas-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #E8DCC8; /* Beige */
 }
 
 .sidebar::-webkit-scrollbar-thumb,
 .canvas-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #D4AF37; /* Or */
   border-radius: 5px;
 }
 
 .sidebar::-webkit-scrollbar-thumb:hover,
 .canvas-container::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: #7C1D1D; /* Bordeaux */
 }
 
 /* ==================== KEYBOARD HINTS ==================== */
@@ -475,8 +540,8 @@ body {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0,0,0,0.8);
-  color: white;
+  background: rgba(45, 52, 54, 0.9);
+  color: #F5F0E8;
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 12px;
@@ -484,8 +549,20 @@ body {
   pointer-events: none;
   transition: opacity 0.3s;
   z-index: 5000;
+  border: 1px solid #D4AF37;
 }
 
 .keyboard-hint.show {
   opacity: 1;
+}
+
+/* ==================== KBD STYLING ==================== */
+kbd {
+  background: #2D3436;
+  color: #F5F0E8;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 11px;
+  border: 1px solid #D4AF37;
 }
