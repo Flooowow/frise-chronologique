@@ -347,6 +347,12 @@ function drawEvents() {
     });
 
     eventsContainer.appendChild(card);
+    
+    card.querySelector('.resize-corner').addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = { type: 'eventP', item: ev, startX: m.x, startY: m.y, startW: ev.width, startH: ev.height };
+    });
   });
 }
 
