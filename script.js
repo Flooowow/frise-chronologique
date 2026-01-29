@@ -32,6 +32,34 @@ const container = document.getElementById('canvasContainer');
 const eventsContainer = document.getElementById('eventsContainer');
 
 // ==================== UTILS ====================
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+function showToast(message, type = 'info') {
+  const existingToast = document.querySelector('.toast');
+  if (existingToast) existingToast.remove();
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => toast.classList.add('show'), 10);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
+}
+
 function getMouseWorldPos(e) {
   const rect = container.getBoundingClientRect();
   const xInContainer = (e.clientX - rect.left) + container.scrollLeft;
@@ -83,37 +111,39 @@ function setupEventListeners() {
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('closed');
     container.classList.toggle('closed');
-const toggleBtn = document.getElementById('toggleMenu');
-toggleBtn.textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
-toggleBtn.style.left = sidebar.classList.contains('closed') ? '0' : 'auto';
+    const toggleBtn = document.getElementById('toggleMenu');
+    toggleBtn.textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
+    toggleBtn.style.left = sidebar.classList.contains('closed') ? '0' : 'auto';
   });
 
-  // Settings
-  const updateSetting = (id, key, parser = parseInt) => {
+  // Settings avec debouncing pour la performance
+  const debouncedRender = debounce(() => {
+    render();
+    saveToLocalStorageSilent();
+  }, 150);
+
+  const updateSetting = (id, key, parser = parseInt, needsResize = false) => {
     document.getElementById(id).addEventListener('change', (e) => {
       settings[key] = parser(e.target.value);
-      if (id.includes('pages')) resizeCanvas();
-      render();
-      saveToLocalStorageSilent();
+      if (needsResize) resizeCanvas();
+      debouncedRender();
     });
   };
 
   updateSetting('startYear', 'startYear');
   updateSetting('endYear', 'endYear');
   updateSetting('scale', 'scale');
-  updateSetting('pagesH', 'pagesH');
-  updateSetting('pagesV', 'pagesV');
+  updateSetting('pagesH', 'pagesH', parseInt, true);
+  updateSetting('pagesV', 'pagesV', parseInt, true);
 
   document.getElementById('timelineY').addEventListener('input', (e) => {
     settings.timelineY = parseInt(e.target.value);
-    render();
-    saveToLocalStorageSilent();
+    debouncedRender();
   });
 
   document.getElementById('timelineThickness').addEventListener('input', (e) => {
     settings.timelineThickness = parseInt(e.target.value);
-    render();
-    saveToLocalStorageSilent();
+    debouncedRender();
   });
 
   document.getElementById('zoomLevel').addEventListener('input', (e) => {
@@ -180,6 +210,7 @@ toggleBtn.style.left = sidebar.classList.contains('closed') ? '0' : 'auto';
       container.classList.add('grabbing');
       dragStart = { x: e.clientX - viewOffset.x, y: e.clientY - viewOffset.y };
       clearSelectedText();
+      deselectItem();
     }
   });
 
@@ -213,6 +244,37 @@ toggleBtn.style.left = sidebar.classList.contains('closed') ? '0' : 'auto';
       preview.style.display = 'block';
     };
     reader.readAsDataURL(file);
+  });
+
+  // Raccourcis clavier
+  document.addEventListener('keydown', (e) => {
+    // ESC pour fermer modals
+    if (e.key === 'Escape') {
+      closeModals();
+      deselectItem();
+      clearSelectedText();
+    }
+    
+    // Delete pour supprimer l'élément sélectionné
+    if (e.key === 'Delete' && selectedItem) {
+      e.preventDefault();
+      deleteSelectedItem();
+    }
+    
+    // Ctrl+S pour sauvegarder
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      saveToFile();
+    }
+    
+    // Entrée pour valider dans les modals
+    if (e.key === 'Enter' && document.querySelector('.modal.show')) {
+      e.preventDefault();
+      const activeModal = document.querySelector('.modal.show');
+      if (activeModal.id === 'eventModal') saveEvent();
+      else if (activeModal.id === 'periodModal') savePeriod();
+      else if (activeModal.id === 'artistModal') saveArtist();
+    }
   });
 }
 
@@ -333,25 +395,31 @@ function drawEvents() {
       if (e.target.dataset.owner === 'event') return;
       const m = getMouseWorldPos(e);
       draggedItem = { type: 'event', item: ev, offsetY: m.y - ev.y };
-    div.innerHTML = `
-      <div class="artist-marker" style="left: 0;"></div>
-      <div class="artist-marker" style="left: ${width - 10}px;"></div>
-      <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
-           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.name)}</div>
-      <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
-           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
-    `;
-      e.stopPropagation();
-      m = getMouseWorldPos(e);
-      resizingItem = { type: 'eventP', item: ev, startX: m.x, startY: m.y, startW: ev.width, startH: ev.height };
+    });
+
+    // Texte sélectionnable
+    card.querySelectorAll('[data-owner="event"]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectTextElement(el);
+      });
     });
 
     eventsContainer.appendChild(card);
     
-    card.querySelector('.resize-corner').addEventListener('mousedown', (e) => {
+    // 🔧 FIX: Gestion du resize corner - une seule fois !
+    const resizeCorner = card.querySelector('.resize-corner');
+    resizeCorner.addEventListener('mousedown', (e) => {
       e.stopPropagation();
       const m = getMouseWorldPos(e);
-      resizingItem = { type: 'eventP', item: ev, startX: m.x, startY: m.y, startW: ev.width, startH: ev.height };
+      resizingItem = { 
+        type: 'event', 
+        item: ev, 
+        startX: m.x, 
+        startY: m.y, 
+        startW: ev.width, 
+        startH: ev.height 
+      };
     });
   });
 }
@@ -454,11 +522,12 @@ function drawArtists() {
     eventsContainer.appendChild(div);
   });
 }
+
 function handleDrag(e) {
   const m = getMouseWorldPos(e);
   const item = draggedItem.item;
   
-  // PAS DE LIMITE - déplacement vertical illimité !
+  // Déplacement vertical illimité
   item.y = m.y - draggedItem.offsetY;
   
   render();
@@ -468,7 +537,7 @@ function handleDrag(e) {
 function handleResize(e) {
   const m = getMouseWorldPos(e);
 
-  if (resizingItem.type === 'eventP') {
+  if (resizingItem.type === 'event') {
     const ev = resizingItem.item;
     const dx = m.x - resizingItem.startX;
     const dy = m.y - resizingItem.startY;
@@ -484,6 +553,12 @@ function handleResize(e) {
 function selectItem(item, type) {
   selectedItem = { id: item.id, type };
   document.getElementById('selectedItemActions').style.display = 'block';
+  render();
+}
+
+function deselectItem() {
+  selectedItem = null;
+  document.getElementById('selectedItemActions').style.display = 'none';
   render();
 }
 
@@ -571,7 +646,7 @@ function saveEvent() {
   const img = document.getElementById('eventPreview').src;
 
   if (!name || !year || !img || img === window.location.href) {
-    alert('Veuillez remplir tous les champs');
+    showToast('Veuillez remplir tous les champs', 'error');
     return;
   }
 
@@ -581,6 +656,7 @@ function saveEvent() {
       ev.name = name;
       ev.year = year;
       ev.image = img;
+      showToast('Événement modifié !', 'success');
     }
   } else {
     events.push({
@@ -588,6 +664,7 @@ function saveEvent() {
       name, year, image: img,
       y: 100, width: 120, height: 120
     });
+    showToast('Événement ajouté !', 'success');
   }
 
   closeModals();
@@ -603,7 +680,7 @@ function savePeriod() {
   const height = parseInt(document.getElementById('periodHeight').value);
 
   if (!name || !startYear || !endYear) {
-    alert('Veuillez remplir tous les champs');
+    showToast('Veuillez remplir tous les champs', 'error');
     return;
   }
 
@@ -615,6 +692,7 @@ function savePeriod() {
       p.endYear = endYear;
       p.color = color;
       p.height = height;
+      showToast('Période modifiée !', 'success');
     }
   } else {
     periods.push({
@@ -622,6 +700,7 @@ function savePeriod() {
       name, startYear, endYear, color,
       y: 50, height
     });
+    showToast('Période ajoutée !', 'success');
   }
 
   closeModals();
@@ -635,7 +714,7 @@ function saveArtist() {
   const deathYear = document.getElementById('artistDeath').value.trim();
 
   if (!name || !birthYear || !deathYear) {
-    alert('Veuillez remplir tous les champs');
+    showToast('Veuillez remplir tous les champs', 'error');
     return;
   }
 
@@ -645,6 +724,7 @@ function saveArtist() {
       a.name = name;
       a.birthYear = birthYear;
       a.deathYear = deathYear;
+      showToast('Artiste modifié !', 'success');
     }
   } else {
     artists.push({
@@ -652,6 +732,7 @@ function saveArtist() {
       name, birthYear, deathYear,
       y: settings.timelineY - 100
     });
+    showToast('Artiste ajouté !', 'success');
   }
 
   closeModals();
@@ -696,9 +777,18 @@ function editSelectedItem() {
 
 function deleteSelectedItem() {
   if (!selectedItem) return;
+  
+  // Confirmation avant suppression
+  const type = selectedItem.type === 'event' ? "l'événement" : 
+               selectedItem.type === 'period' ? 'la période' : "l'artiste";
+  
+  if (!confirm(`Voulez-vous vraiment supprimer ${type} ?`)) return;
+  
   if (selectedItem.type === 'event') events = events.filter(x => x.id !== selectedItem.id);
   if (selectedItem.type === 'period') periods = periods.filter(x => x.id !== selectedItem.id);
   if (selectedItem.type === 'artist') artists = artists.filter(x => x.id !== selectedItem.id);
+  
+  showToast('Élément supprimé', 'info');
   selectedItem = null;
   document.getElementById('selectedItemActions').style.display = 'none';
   clearSelectedText();
@@ -712,6 +802,15 @@ function centerOnYearZero() {
   viewOffset.x = (window.innerWidth / 2) - zeroX;
   viewOffset.y = 0;
   updateViewOffset();
+  showToast('Centré sur l\'année 0', 'info');
+}
+
+function resetView() {
+  viewOffset = { x: 0, y: 0 };
+  settings.zoom = 1;
+  document.getElementById('zoomLevel').value = 1;
+  updateViewOffset();
+  showToast('Vue réinitialisée', 'info');
 }
 
 function applyBackgroundColor() {
@@ -719,6 +818,7 @@ function applyBackgroundColor() {
   applyBackgroundToContainer();
   render();
   saveToLocalStorageSilent();
+  showToast('Couleur de fond appliquée', 'success');
 }
 
 // ==================== SAUVEGARDE ====================
@@ -734,9 +834,9 @@ function saveToFile() {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 100);
-    alert('Sauvegarde téléchargée ! 💾');
+    showToast('Sauvegarde téléchargée ! 💾', 'success');
   } catch (err) {
-    alert('Erreur: ' + err.message);
+    showToast('Erreur: ' + err.message, 'error');
   }
 }
 
@@ -767,9 +867,9 @@ function loadFromFile(event) {
       resizeCanvas();
       applyBackgroundToContainer();
       render();
-      alert('Sauvegarde chargée ! 📂');
+      showToast('Sauvegarde chargée ! 📂', 'success');
     } catch (err) {
-      alert('Erreur: ' + err.message);
+      showToast('Erreur: ' + err.message, 'error');
     }
   };
   reader.readAsText(file);
@@ -778,7 +878,7 @@ function loadFromFile(event) {
 
 function saveToLocalStorage() {
   localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
-  alert('Sauvegarde navigateur réussie ! 💾');
+  showToast('Sauvegarde navigateur réussie ! 💾', 'success');
 }
 
 function saveToLocalStorageSilent() {
@@ -789,7 +889,10 @@ function saveToLocalStorageSilent() {
 
 function loadFromLocalStorage() {
   const raw = localStorage.getItem('timelineData');
-  if (!raw) return;
+  if (!raw) {
+    showToast('Aucune sauvegarde trouvée', 'info');
+    return;
+  }
   try {
     const data = JSON.parse(raw);
     events = data.events || [];
@@ -811,12 +914,15 @@ function loadFromLocalStorage() {
     resizeCanvas();
     applyBackgroundToContainer();
     render();
-  } catch (e) {}
+    showToast('Sauvegarde chargée !', 'success');
+  } catch (e) {
+    showToast('Erreur de chargement', 'error');
+  }
 }
 
 // ==================== START ====================
 window.addEventListener('load', init);
-window.addEventListener('resize', () => {
+window.addEventListener('resize', debounce(() => {
   resizeCanvas();
   render();
-});
+}, 250));
