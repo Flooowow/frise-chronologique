@@ -1,1021 +1,928 @@
 // ==================== DONNÉES ====================
-let cards = [];
-let currentCardId = null;
-let currentEditId = null;
-let currentQuizIndex = 0;
-let quizCards = [];
-let quizStats = { correct: 0, wrong: 0 };
-let quizHistory = []; // Historique des sessions
-let quizMode = 'all'; // 'all' ou 'towork'
+let events = [];
+let periods = [];
+let artists = [];
+let selectedItem = null;
+let selectedTextElement = null;
 
-// ==================== INITIALISATION ====================
-document.addEventListener('DOMContentLoaded', () => {
-  loadFromLocalStorage();
-  loadHistoryFromLocalStorage();
-  setupEventListeners();
-  renderCardsList();
-});
+let settings = {
+  startYear: -500,
+  endYear: 2000,
+  scale: 50,
+  timelineY: 300,
+  timelineThickness: 40,
+  zoom: 1,
+  pagesH: 3,
+  pagesV: 2,
+  bgColor: '#ffffff',
+  showGrid: true
+};
 
-// ==================== EVENT LISTENERS ====================
-function setupEventListeners() {
-  // Basculer entre modes
-  document.getElementById('editModeBtn').addEventListener('click', () => switchMode('edit'));
-  document.getElementById('quizModeBtn').addEventListener('click', () => switchMode('quiz'));
+// Pan & Drag
+let isDraggingCanvas = false;
+let dragStart = { x: 0, y: 0 };
+let viewOffset = { x: 0, y: 0 };
+let draggedItem = null;
+let resizingItem = null;
+let editMode = false;
 
-  // Mode édition
-  document.getElementById('addCardBtn').addEventListener('click', createNewCard);
-  document.getElementById('sortSelect').addEventListener('change', (e) => {
-    sortCards(e.target.value);
-    renderCardsList();
-  });
-  document.getElementById('cardImage').addEventListener('change', handleImageUpload);
-  document.getElementById('saveCardBtn').addEventListener('click', saveCard);
-  document.getElementById('cancelEditBtn').addEventListener('click', cancelEdit);
-  document.getElementById('deleteCardBtn').addEventListener('click', deleteCard);
-  document.getElementById('toggleToWorkBtn').addEventListener('click', toggleToWork);
-  document.getElementById('resetStatsBtn').addEventListener('click', resetCardStats);
+const canvas = document.getElementById('timeline');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('canvasContainer');
+const eventsContainer = document.getElementById('eventsContainer');
 
-  // Export / Import
-  document.getElementById('exportBtn').addEventListener('click', exportCards);
-  document.getElementById('importBtn').addEventListener('click', () => {
-    document.getElementById('importFile').click();
-  });
-  document.getElementById('importFile').addEventListener('change', importCards);
-
-  // Mode quiz
-  document.getElementById('verifyBtn').addEventListener('click', verifyAnswer);
-  
-  const quizInput = document.getElementById('quizInput');
-  
-  // Gestion globale de ENTER dans le quiz
-  let quizAnswered = false;
-  
-  quizInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      
-      if (!quizAnswered) {
-        // Première pression : vérifier
-        verifyAnswer();
-        quizAnswered = true;
-      } else {
-        // Deuxième pression : carte suivante
-        nextQuizCard();
-        quizAnswered = false;
-      }
-    }
-  });
-  
-  // Reset du flag quand on charge une nouvelle carte
-  window.resetQuizAnswered = () => { quizAnswered = false; };
-  
-  document.getElementById('nextCardBtn').addEventListener('click', () => {
-    nextQuizCard();
-    quizAnswered = false;
-  });
-  document.getElementById('prevCardBtn').addEventListener('click', prevQuizCard);
-  document.getElementById('restartQuizBtn').addEventListener('click', startQuiz);
-  document.getElementById('viewHistoryBtn').addEventListener('click', showHistoryModal);
-  document.getElementById('clearHistoryBtn').addEventListener('click', clearHistory);
-
-  // Sélecteurs de mode quiz
-  document.querySelectorAll('.quiz-mode-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      document.querySelectorAll('.quiz-mode-btn').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      quizMode = e.target.dataset.mode;
-      startQuiz();
-    });
-  });
+// ==================== UTILS ====================
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
 }
 
-// ==================== MODE SWITCHING ====================
-function switchMode(mode) {
-  const editMode = document.getElementById('editMode');
-  const quizMode = document.getElementById('quizMode');
-  const editBtn = document.getElementById('editModeBtn');
-  const quizBtn = document.getElementById('quizModeBtn');
-
-  if (mode === 'edit') {
-    editMode.classList.add('active');
-    quizMode.classList.remove('active');
-    editBtn.classList.add('active');
-    quizBtn.classList.remove('active');
-  } else {
-    editMode.classList.remove('active');
-    quizMode.classList.add('active');
-    editBtn.classList.remove('active');
-    quizBtn.classList.add('active');
-    startQuiz();
-  }
-}
-
-// ==================== TOAST NOTIFICATIONS ====================
 function showToast(message, type = 'info') {
-  const container = document.getElementById('toastContainer');
+  const existingToast = document.querySelector('.toast');
+  if (existingToast) existingToast.remove();
+
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.textContent = message;
-  container.appendChild(toast);
-
+  document.body.appendChild(toast);
+  
+  setTimeout(() => toast.classList.add('show'), 10);
   setTimeout(() => {
-    toast.style.animation = 'slideIn 0.3s ease reverse';
+    toast.classList.remove('show');
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, 2000);
 }
 
-// ==================== CONFIRMATION MODAL ====================
-function showConfirm(title, message) {
-  return new Promise((resolve) => {
-    const modal = document.getElementById('confirmModal');
-    document.getElementById('confirmTitle').textContent = title;
-    document.getElementById('confirmMessage').textContent = message;
-    
-    modal.style.display = 'flex';
-    
-    const handleYes = () => {
-      modal.style.display = 'none';
-      cleanup();
-      resolve(true);
+function getMouseWorldPos(e) {
+  const rect = container.getBoundingClientRect();
+  const xInContainer = (e.clientX - rect.left) + container.scrollLeft;
+  const yInContainer = (e.clientY - rect.top) + container.scrollTop;
+  return {
+    x: (xInContainer - viewOffset.x) / settings.zoom,
+    y: (yInContainer - viewOffset.y) / settings.zoom
+  };
+}
+
+function yearToX(year) {
+  const totalYears = settings.endYear - settings.startYear;
+  return ((year - settings.startYear) / totalYears) * canvas.width;
+}
+
+function xToYear(x) {
+  const totalYears = settings.endYear - settings.startYear;
+  return Math.round((x / canvas.width) * totalYears + settings.startYear);
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+// ==================== INIT ====================
+function init() {
+  resizeCanvas();
+  setupEventListeners();
+  loadFromLocalStorage();
+  applyBackgroundToContainer();
+  render();
+}
+
+function resizeCanvas() {
+  canvas.width = settings.pagesH * 1400;
+  canvas.height = settings.pagesV * 800;
+  eventsContainer.style.width = canvas.width + 'px';
+  eventsContainer.style.height = canvas.height + 'px';
+}
+
+function setupEventListeners() {
+  // Menu toggle
+  document.getElementById('toggleMenu').addEventListener('click', () => {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('closed');
+    container.classList.toggle('closed');
+    const toggleBtn = document.getElementById('toggleMenu');
+    toggleBtn.textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
+    toggleBtn.style.left = sidebar.classList.contains('closed') ? '0' : 'auto';
+  });
+
+  // Settings avec debouncing pour la performance
+  const debouncedRender = debounce(() => {
+    render();
+    saveToLocalStorageSilent();
+  }, 150);
+
+  const updateSetting = (id, key, parser = parseInt, needsResize = false) => {
+    document.getElementById(id).addEventListener('change', (e) => {
+      settings[key] = parser(e.target.value);
+      if (needsResize) resizeCanvas();
+      debouncedRender();
+    });
+  };
+
+  updateSetting('startYear', 'startYear');
+  updateSetting('endYear', 'endYear');
+  updateSetting('scale', 'scale');
+  updateSetting('pagesH', 'pagesH', parseInt, true);
+  updateSetting('pagesV', 'pagesV', parseInt, true);
+
+  document.getElementById('timelineY').addEventListener('input', (e) => {
+    settings.timelineY = parseInt(e.target.value);
+    debouncedRender();
+  });
+
+  document.getElementById('timelineThickness').addEventListener('input', (e) => {
+    settings.timelineThickness = parseInt(e.target.value);
+    debouncedRender();
+  });
+
+  document.getElementById('zoomLevel').addEventListener('input', (e) => {
+    settings.zoom = parseFloat(e.target.value);
+    updateViewOffset();
+    saveToLocalStorageSilent();
+  });
+
+  document.getElementById('showGrid').addEventListener('change', (e) => {
+    settings.showGrid = e.target.checked;
+    applyBackgroundToContainer();
+    render();
+    saveToLocalStorageSilent();
+  });
+
+  document.getElementById('periodHeight')?.addEventListener('input', (e) => {
+    document.getElementById('periodHeightValue').textContent = e.target.value + 'px';
+  });
+
+  // Text tools
+  document.getElementById('selectedTextSize').addEventListener('input', (e) => {
+    const size = parseInt(e.target.value);
+    document.getElementById('selectedTextSizeValue').textContent = size + 'px';
+    if (!selectedTextElement) return;
+
+    const { owner, obj, key } = selectedTextElement;
+    if (owner === 'event') {
+      if (key === 'title') obj.customTitleSize = size;
+      else obj.customYearSize = size;
+    } else if (owner === 'period') {
+      if (key === 'name') obj.nameSize = size;
+      else obj.datesSize = size;
+    } else if (owner === 'artist') {
+      if (key === 'name') obj.nameSize = size;
+      else obj.datesSize = size;
+    }
+    render();
+    saveToLocalStorageSilent();
+  });
+
+  document.getElementById('selectedTextBold').addEventListener('change', (e) => {
+    const bold = e.target.checked;
+    if (!selectedTextElement) return;
+
+    const { owner, obj, key } = selectedTextElement;
+    if (owner === 'event') {
+      if (key === 'title') obj.customTitleBold = bold;
+      else obj.customYearBold = bold;
+    } else if (owner === 'period') {
+      if (key === 'name') obj.nameBold = bold;
+      else obj.datesBold = bold;
+    } else if (owner === 'artist') {
+      if (key === 'name') obj.nameBold = bold;
+      else obj.datesBold = bold;
+    }
+    render();
+    saveToLocalStorageSilent();
+  });
+
+  // Canvas interactions
+  container.addEventListener('mousedown', (e) => {
+    if (e.target === canvas || e.target === container) {
+      isDraggingCanvas = true;
+      container.classList.add('grabbing');
+      dragStart = { x: e.clientX - viewOffset.x, y: e.clientY - viewOffset.y };
+      clearSelectedText();
+      deselectItem();
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isDraggingCanvas) {
+      viewOffset.x = e.clientX - dragStart.x;
+      viewOffset.y = e.clientY - dragStart.y;
+      updateViewOffset();
+    } else if (draggedItem) {
+      handleDrag(e);
+    } else if (resizingItem) {
+      handleResize(e);
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDraggingCanvas = false;
+    container.classList.remove('grabbing');
+    draggedItem = null;
+    resizingItem = null;
+  });
+
+  // Image preview
+  document.getElementById('eventImage').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const preview = document.getElementById('eventPreview');
+      preview.src = ev.target.result;
+      preview.style.display = 'block';
     };
+    reader.readAsDataURL(file);
+  });
+
+  // Raccourcis clavier
+  document.addEventListener('keydown', (e) => {
+    // ESC pour fermer modals
+    if (e.key === 'Escape') {
+      closeModals();
+      deselectItem();
+      clearSelectedText();
+    }
     
-    const handleNo = () => {
-      modal.style.display = 'none';
-      cleanup();
-      resolve(false);
-    };
+    // Delete pour supprimer l'élément sélectionné
+    if (e.key === 'Delete' && selectedItem) {
+      e.preventDefault();
+      deleteSelectedItem();
+    }
     
-    const yesBtn = document.getElementById('confirmYes');
-    const noBtn = document.getElementById('confirmNo');
+    // Ctrl+S pour sauvegarder
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      saveToFile();
+    }
     
-    yesBtn.addEventListener('click', handleYes);
-    noBtn.addEventListener('click', handleNo);
-    
-    // ESC pour annuler
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        handleNo();
-      }
-    };
-    document.addEventListener('keydown', handleEscape);
-    
-    function cleanup() {
-      yesBtn.removeEventListener('click', handleYes);
-      noBtn.removeEventListener('click', handleNo);
-      document.removeEventListener('keydown', handleEscape);
+    // Entrée pour valider dans les modals
+    if (e.key === 'Enter' && document.querySelector('.modal.show')) {
+      e.preventDefault();
+      const activeModal = document.querySelector('.modal.show');
+      if (activeModal.id === 'eventModal') saveEvent();
+      else if (activeModal.id === 'periodModal') savePeriod();
+      else if (activeModal.id === 'artistModal') saveArtist();
     }
   });
 }
 
-// ==================== CARDS MANAGEMENT ====================
-function createNewCard() {
-  const newCard = {
-    id: Date.now(),
-    artist: '',
-    title: '',
-    date: '',
-    image: null,
-    order: cards.length,
-    // Nouvelles propriétés
-    toWork: false,
-    stats: {
-      played: 0,
-      correct: 0,
-      wrong: 0,
-      successRate: 0
-    }
-  };
-  cards.push(newCard);
-  renderCardsList();
-  selectCard(newCard.id);
-  showToast('Nouvelle carte créée', 'success');
-  saveToLocalStorage();
+function applyBackgroundToContainer() {
+  container.style.backgroundColor = settings.bgColor;
+  if (settings.showGrid) {
+    container.style.backgroundImage = 'linear-gradient(to right, #d0d0d0 1px, transparent 1px), linear-gradient(to bottom, #d0d0d0 1px, transparent 1px)';
+    container.style.backgroundSize = '37.8px 37.8px';
+  } else {
+    container.style.backgroundImage = 'none';
+  }
 }
 
-function selectCard(cardId) {
-  currentEditId = cardId;
-  const card = cards.find(c => c.id === cardId);
-  if (!card) return;
+function updateViewOffset() {
+  canvas.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
+  eventsContainer.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
+}
 
-  // S'assurer que card a les nouvelles propriétés
-  if (!card.stats) {
-    card.stats = { played: 0, correct: 0, wrong: 0, successRate: 0 };
-  }
-  if (card.toWork === undefined) {
-    card.toWork = false;
-  }
+// ==================== RENDER ====================
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawTimeline();
+  drawPeriods();
+  drawArtists();
+  drawEvents();
+  updateViewOffset();
+}
 
-  // Mise à jour UI
-  document.querySelectorAll('.card-item').forEach(item => {
-    item.classList.toggle('active', parseInt(item.dataset.cardId) === cardId);
+function drawTimeline() {
+  const y = settings.timelineY;
+  const half = settings.timelineThickness / 2;
+
+  // Barre principale
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, y - half, canvas.width, settings.timelineThickness);
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 5;
+  ctx.strokeRect(0, y - half, canvas.width, settings.timelineThickness);
+
+  // Graduations
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 3;
+  ctx.fillStyle = '#000000';
+  const fontSize = Math.max(14, Math.min(22, settings.timelineThickness * 0.45));
+  ctx.font = `bold ${fontSize}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
+    const x = yearToX(year);
+    ctx.beginPath();
+    ctx.moveTo(x, y - half);
+    ctx.lineTo(x, y + half);
+    ctx.stroke();
+    ctx.fillText(year.toString(), x, y);
+  }
+}
+
+// ==================== EVENTS ====================
+function drawEvents() {
+  document.querySelectorAll('.event-card, .connection-line').forEach(el => el.remove());
+
+  events.forEach(ev => {
+    const x = yearToX(parseInt(ev.year));
+    const card = document.createElement('div');
+    card.className = 'event-card' + (selectedItem?.type === 'event' && selectedItem?.id === ev.id ? ' selected' : '');
+    card.style.left = (x - ev.width / 2) + 'px';
+    card.style.top = ev.y + 'px';
+    card.style.width = ev.width + 'px';
+    card.style.height = ev.height + 'px';
+
+    const titleSize = ev.customTitleSize || 12;
+    const titleBold = ev.customTitleBold ? 'bold' : 'normal';
+    const yearSize = ev.customYearSize || 10;
+    const yearBold = ev.customYearBold ? 'bold' : 'normal';
+
+    card.innerHTML = `
+      <img src="${ev.image}" alt="${escapeHtml(ev.name)}">
+      <div class="event-title" data-owner="event" data-id="${ev.id}" data-key="title"
+           style="font-size:${titleSize}px; font-weight:${titleBold}">${escapeHtml(ev.name)}</div>
+      <div class="event-year" data-owner="event" data-id="${ev.id}" data-key="year"
+           style="font-size:${yearSize}px; font-weight:${yearBold}">${escapeHtml(String(ev.year))}</div>
+      <div class="resize-corner"></div>
+    `;
+
+    // Ligne de connexion
+    const half = settings.timelineThickness / 2;
+    const timelineTop = settings.timelineY - half;
+    const timelineBottom = settings.timelineY + half;
+    const eventBottom = ev.y + ev.height;
+
+    if (eventBottom < timelineTop) {
+      // Au-dessus
+      const line = document.createElement('div');
+      line.className = 'connection-line';
+      line.style.left = x + 'px';
+      line.style.top = eventBottom + 'px';
+      line.style.height = (timelineTop - eventBottom) + 'px';
+      eventsContainer.appendChild(line);
+    } else if (ev.y > timelineBottom) {
+      // En-dessous
+      const line = document.createElement('div');
+      line.className = 'connection-line';
+      line.style.left = x + 'px';
+      line.style.top = timelineBottom + 'px';
+      line.style.height = (ev.y - timelineBottom) + 'px';
+      eventsContainer.appendChild(line);
+    }
+
+    // Event listeners
+    card.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectItem(ev, 'event');
+    });
+
+    card.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('resize-corner')) return;
+      if (e.target.dataset.owner === 'event') return;
+      const m = getMouseWorldPos(e);
+      draggedItem = { type: 'event', item: ev, offsetY: m.y - ev.y };
+    });
+
+    // Texte sélectionnable
+    card.querySelectorAll('[data-owner="event"]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectTextElement(el);
+      });
+    });
+
+    eventsContainer.appendChild(card);
+    
+    // 🔧 FIX: Gestion du resize corner - une seule fois !
+    const resizeCorner = card.querySelector('.resize-corner');
+    resizeCorner.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const m = getMouseWorldPos(e);
+      resizingItem = { 
+        type: 'event', 
+        item: ev, 
+        startX: m.x, 
+        startY: m.y, 
+        startW: ev.width, 
+        startH: ev.height 
+      };
+    });
   });
-
-  // Afficher l'éditeur
-  document.querySelector('.editor-content .empty-state')?.remove();
-  const editor = document.getElementById('cardEditor');
-  editor.style.display = 'block';
-
-  // Remplir le formulaire
-  document.getElementById('cardArtist').value = card.artist || '';
-  document.getElementById('cardTitle').value = card.title || '';
-  document.getElementById('cardDate').value = card.date || '';
-
-  // Afficher l'image si elle existe
-  const preview = document.getElementById('imagePreview');
-  if (card.image) {
-    preview.innerHTML = `<img src="${card.image}" alt="Aperçu">`;
-  } else {
-    preview.innerHTML = '';
-  }
-
-  // Mettre à jour le bouton "À travailler"
-  const toWorkBtn = document.getElementById('toggleToWorkBtn');
-  if (card.toWork) {
-    toWorkBtn.textContent = '✅ À travailler';
-    toWorkBtn.classList.add('active');
-  } else {
-    toWorkBtn.textContent = '⭐ À travailler';
-    toWorkBtn.classList.remove('active');
-  }
-
-  // Afficher les statistiques
-  document.getElementById('statPlayed').textContent = card.stats.played;
-  document.getElementById('statCorrect').textContent = card.stats.correct;
-  document.getElementById('statWrong').textContent = card.stats.wrong;
-  document.getElementById('statRate').textContent = card.stats.successRate + '%';
 }
 
-function saveCard() {
-  const card = cards.find(c => c.id === currentEditId);
-  if (!card) return;
+// ==================== PERIODS ====================
+function drawPeriods() {
+  document.querySelectorAll('.period-bar').forEach(el => el.remove());
 
-  const artist = document.getElementById('cardArtist').value.trim();
-  const title = document.getElementById('cardTitle').value.trim();
-  const date = document.getElementById('cardDate').value.trim();
+  periods.forEach(p => {
+    const startX = yearToX(parseInt(p.startYear));
+    const endX = yearToX(parseInt(p.endYear));
+    const div = document.createElement('div');
+    div.className = 'period-bar' + (selectedItem?.type === 'period' && selectedItem?.id === p.id ? ' selected' : '');
+    div.style.left = startX + 'px';
+    div.style.top = p.y + 'px';
+    div.style.width = (endX - startX) + 'px';
+    div.style.height = (p.height || 40) + 'px';
+    div.style.background = p.color || '#4299e1';
 
-  if (!artist || !title || !date) {
-    showToast('Veuillez remplir tous les champs obligatoires', 'error');
-    return;
-  }
+    const nameSize = p.nameSize || 13;
+    const datesSize = p.datesSize || 11;
+    const nameBold = p.nameBold ?? true;
+    const datesBold = p.datesBold ?? false;
 
-  if (!card.image) {
-    showToast('Veuillez ajouter une image', 'error');
-    return;
-  }
-
-  card.artist = artist;
-  card.title = title;
-  card.date = date;
-
-  renderCardsList();
-  saveToLocalStorage();
-  showToast('Carte enregistrée !', 'success');
-}
-
-async function deleteCard() {
-  if (!currentEditId) return;
-  
-  const confirmed = await showConfirm(
-    'Supprimer la carte ?',
-    'Voulez-vous vraiment supprimer cette carte ? Cette action est irréversible.'
-  );
-  
-  if (!confirmed) return;
-
-  cards = cards.filter(c => c.id !== currentEditId);
-  currentEditId = null;
-  
-  // Réinitialiser l'éditeur
-  document.getElementById('cardEditor').style.display = 'none';
-  const editorContent = document.querySelector('.editor-content');
-  if (!document.querySelector('.empty-state')) {
-    editorContent.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🎨</div>
-        <h3>Aucune carte sélectionnée</h3>
-        <p>Sélectionnez une carte ou créez-en une nouvelle</p>
-      </div>
+    div.innerHTML = `
+      <div class="period-name" data-owner="period" data-id="${p.id}" data-key="name"
+           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}">${escapeHtml(p.name)}</div>
+      <div class="period-dates" data-owner="period" data-id="${p.id}" data-key="dates"
+           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}">${escapeHtml(p.startYear)} - ${escapeHtml(p.endYear)}</div>
     `;
-  }
 
-  renderCardsList();
-  saveToLocalStorage();
-  showToast('Carte supprimée', 'info');
-}
+    div.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectItem(p, 'period');
+    });
 
-function toggleToWork() {
-  if (!currentEditId) return;
-  const card = cards.find(c => c.id === currentEditId);
-  if (!card) return;
+    div.addEventListener('mousedown', (e) => {
+      if (e.target.dataset?.owner === 'period') return;
+      const m = getMouseWorldPos(e);
+      draggedItem = { type: 'period', item: p, offsetY: m.y - p.y };
+    });
 
-  card.toWork = !card.toWork;
-  
-  const btn = document.getElementById('toggleToWorkBtn');
-  if (card.toWork) {
-    btn.textContent = '✅ À travailler';
-    btn.classList.add('active');
-    showToast('Carte ajoutée à "À travailler"', 'success');
-  } else {
-    btn.textContent = '⭐ À travailler';
-    btn.classList.remove('active');
-    showToast('Carte retirée de "À travailler"', 'info');
-  }
-
-  saveToLocalStorage();
-  renderCardsList();
-}
-
-async function resetCardStats() {
-  if (!currentEditId) return;
-  
-  const confirmed = await showConfirm(
-    'Réinitialiser les statistiques ?',
-    'Voulez-vous remettre à zéro toutes les statistiques de cette carte ?'
-  );
-  
-  if (!confirmed) return;
-
-  const card = cards.find(c => c.id === currentEditId);
-  if (!card) return;
-
-  card.stats = { played: 0, correct: 0, wrong: 0, successRate: 0 };
-  
-  document.getElementById('statPlayed').textContent = '0';
-  document.getElementById('statCorrect').textContent = '0';
-  document.getElementById('statWrong').textContent = '0';
-  document.getElementById('statRate').textContent = '0%';
-
-  saveToLocalStorage();
-  showToast('Statistiques réinitialisées', 'success');
-}
-
-function cancelEdit() {
-  if (currentEditId) {
-    const card = cards.find(c => c.id === currentEditId);
-    if (card && !card.artist && !card.title && !card.date) {
-      // Si la carte est vide, la supprimer
-      cards = cards.filter(c => c.id !== currentEditId);
-      renderCardsList();
-      saveToLocalStorage();
-    }
-  }
-  
-  currentEditId = null;
-  document.getElementById('cardEditor').style.display = 'none';
-  const editorContent = document.querySelector('.editor-content');
-  if (!document.querySelector('.empty-state')) {
-    editorContent.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🎨</div>
-        <h3>Aucune carte sélectionnée</h3>
-        <p>Sélectionnez une carte ou créez-en une nouvelle</p>
-      </div>
-    `;
-  }
-}
-
-function handleImageUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const card = cards.find(c => c.id === currentEditId);
-    if (card) {
-      card.image = event.target.result;
-      document.getElementById('imagePreview').innerHTML = 
-        `<img src="${event.target.result}" alt="Aperçu">`;
-      saveToLocalStorage();
-    }
-  };
-  reader.readAsDataURL(file);
-}
-
-function sortCards(sortType) {
-  switch(sortType) {
-    case 'date-asc':
-      cards.sort((a, b) => {
-        const dateA = parseInt(a.date) || 0;
-        const dateB = parseInt(b.date) || 0;
-        return dateA - dateB;
+    div.querySelectorAll('[data-owner="period"]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectTextElement(el);
       });
-      break;
-    case 'date-desc':
-      cards.sort((a, b) => {
-        const dateA = parseInt(a.date) || 0;
-        const dateB = parseInt(b.date) || 0;
-        return dateB - dateA;
+    });
+
+    eventsContainer.appendChild(div);
+  });
+}
+
+// ==================== ARTISTS ====================
+function drawArtists() {
+  document.querySelectorAll('.artist-line').forEach(el => el.remove());
+
+  artists.forEach(a => {
+    const birthX = yearToX(parseInt(a.birthYear));
+    const deathX = yearToX(parseInt(a.deathYear));
+    const width = deathX - birthX;
+    const div = document.createElement('div');
+    div.className = 'artist-line' + (selectedItem?.type === 'artist' && selectedItem?.id === a.id ? ' selected' : '');
+    div.style.left = birthX + 'px';
+    div.style.top = a.y + 'px';
+    div.style.width = width + 'px';
+
+    const nameSize = a.nameSize || 12;
+    const datesSize = a.datesSize || 10;
+    const nameBold = a.nameBold ?? true;
+    const datesBold = a.datesBold ?? false;
+
+    div.innerHTML = `
+      <div class="artist-marker" style="left: 0;"></div>
+      <div class="artist-marker" style="left: ${width - 10}px;"></div>
+      <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
+           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.name)}</div>
+      <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
+           style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
+    `;
+
+    div.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectItem(a, 'artist');
+    });
+
+    div.addEventListener('mousedown', (e) => {
+      if (e.target.dataset?.owner === 'artist') return;
+      const mousePos = getMouseWorldPos(e);
+      draggedItem = { type: 'artist', item: a, offsetY: mousePos.y - a.y };
+    });
+
+    div.querySelectorAll('[data-owner="artist"]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectTextElement(el);
       });
-      break;
-    case 'artist':
-      cards.sort((a, b) => (a.artist || '').localeCompare(b.artist || ''));
-      break;
-    case 'order':
-    default:
-      cards.sort((a, b) => a.order - b.order);
-      break;
+    });
+
+    eventsContainer.appendChild(div);
+  });
+}
+
+function handleDrag(e) {
+  const m = getMouseWorldPos(e);
+  const item = draggedItem.item;
+  
+  // Déplacement vertical illimité
+  item.y = m.y - draggedItem.offsetY;
+  
+  render();
+  saveToLocalStorageSilent();
+}
+
+function handleResize(e) {
+  const m = getMouseWorldPos(e);
+
+  if (resizingItem.type === 'event') {
+    const ev = resizingItem.item;
+    const dx = m.x - resizingItem.startX;
+    const dy = m.y - resizingItem.startY;
+    const d = Math.max(dx, dy);
+    ev.width = Math.max(80, resizingItem.startW + d);
+    ev.height = Math.max(80, resizingItem.startH + d);
+    render();
+    saveToLocalStorageSilent();
   }
 }
 
-function renderCardsList() {
-  const container = document.getElementById('cardsList');
-  
-  if (cards.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state" style="padding: 20px;">
-        <p style="text-align: center; color: #6b7280;">Aucune carte pour le moment</p>
-      </div>
-    `;
+// ==================== SELECTION ====================
+function selectItem(item, type) {
+  selectedItem = { id: item.id, type };
+  document.getElementById('selectedItemActions').style.display = 'block';
+  render();
+}
+
+function deselectItem() {
+  selectedItem = null;
+  document.getElementById('selectedItemActions').style.display = 'none';
+  render();
+}
+
+function clearSelectedText() {
+  if (selectedTextElement?.element) {
+    selectedTextElement.element.classList.remove('selected-text');
+  }
+  selectedTextElement = null;
+  document.getElementById('textStyleTools').style.display = 'none';
+}
+
+function selectTextElement(domEl) {
+  clearSelectedText();
+
+  const owner = domEl.dataset.owner;
+  const id = parseInt(domEl.dataset.id);
+  const key = domEl.dataset.key;
+
+  let obj = null;
+  if (owner === 'event') obj = events.find(x => x.id === id);
+  if (owner === 'period') obj = periods.find(x => x.id === id);
+  if (owner === 'artist') obj = artists.find(x => x.id === id);
+  if (!obj) return;
+
+  selectedTextElement = { owner, obj, key, element: domEl };
+  domEl.classList.add('selected-text');
+  document.getElementById('textStyleTools').style.display = 'block';
+
+  let size = 12, bold = false;
+  if (owner === 'event') {
+    if (key === 'title') { size = obj.customTitleSize || 12; bold = obj.customTitleBold ?? false; }
+    if (key === 'year') { size = obj.customYearSize || 10; bold = obj.customYearBold ?? false; }
+  } else if (owner === 'period') {
+    if (key === 'name') { size = obj.nameSize || 13; bold = obj.nameBold ?? true; }
+    if (key === 'dates') { size = obj.datesSize || 11; bold = obj.datesBold ?? false; }
+  } else if (owner === 'artist') {
+    if (key === 'name') { size = obj.nameSize || 12; bold = obj.nameBold ?? true; }
+    if (key === 'dates') { size = obj.datesSize || 10; bold = obj.datesBold ?? false; }
+  }
+
+  document.getElementById('selectedTextSize').value = size;
+  document.getElementById('selectedTextSizeValue').textContent = size + 'px';
+  document.getElementById('selectedTextBold').checked = bold;
+}
+
+// ==================== MODALS ====================
+function showEventModal() {
+  document.getElementById('eventModal').classList.add('show');
+  editMode = false;
+  document.getElementById('eventModalTitle').textContent = 'Ajouter un événement';
+  document.getElementById('eventName').value = '';
+  document.getElementById('eventYear').value = '';
+  document.getElementById('eventImage').value = '';
+  document.getElementById('eventPreview').style.display = 'none';
+}
+
+function showPeriodModal() {
+  document.getElementById('periodModal').classList.add('show');
+  editMode = false;
+  document.getElementById('periodModalTitle').textContent = 'Ajouter une période';
+  document.getElementById('periodName').value = '';
+  document.getElementById('periodStart').value = '';
+  document.getElementById('periodEnd').value = '';
+  document.getElementById('periodColor').value = '#4299e1';
+  document.getElementById('periodHeight').value = '40';
+  document.getElementById('periodHeightValue').textContent = '40px';
+}
+
+function showArtistModal() {
+  document.getElementById('artistModal').classList.add('show');
+  editMode = false;
+  document.getElementById('artistModalTitle').textContent = 'Ajouter un artiste';
+  document.getElementById('artistName').value = '';
+  document.getElementById('artistBirth').value = '';
+  document.getElementById('artistDeath').value = '';
+}
+
+function closeModals() {
+  document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
+}
+
+function saveEvent() {
+  const name = document.getElementById('eventName').value.trim();
+  const year = document.getElementById('eventYear').value.trim();
+  const img = document.getElementById('eventPreview').src;
+
+  if (!name || !year || !img || img === window.location.href) {
+    showToast('Veuillez remplir tous les champs', 'error');
     return;
   }
 
-  container.innerHTML = cards.map(card => {
-    const displayTitle = card.title || 'Sans titre';
-    const displayArtist = card.artist || 'Artiste inconnu';
-    const displayDate = card.date || '?';
-    const thumbnail = card.image || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23e5e7eb" width="60" height="60"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="24"%3E🎨%3C/text%3E%3C/svg%3E';
-    const toWorkBadge = card.toWork ? '<span class="towork-badge">⭐</span>' : '';
-
-    return `
-      <div class="card-item ${currentEditId === card.id ? 'active' : ''}" 
-           data-card-id="${card.id}"
-           onclick="selectCard(${card.id})">
-        <img src="${thumbnail}" alt="${displayTitle}" class="card-item-thumb">
-        <div class="card-item-info">
-          <div class="card-item-title">${escapeHtml(displayTitle)} ${toWorkBadge}</div>
-          <div class="card-item-meta">${escapeHtml(displayArtist)} - ${escapeHtml(displayDate)}</div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// ==================== QUIZ MODE ====================
-function startQuiz() {
-  // Filtrer les cartes selon le mode
-  let availableCards = cards.filter(c => c.artist && c.title && c.date && c.image);
-  
-  if (quizMode === 'towork') {
-    availableCards = availableCards.filter(c => c.toWork);
-    if (availableCards.length === 0) {
-      showToast('Aucune carte marquée "À travailler"', 'error');
-      document.getElementById('quizEmpty').style.display = 'block';
-      document.getElementById('quizCard').style.display = 'none';
-      document.getElementById('quizResult').style.display = 'none';
-      return;
+  if (editMode && selectedItem?.type === 'event') {
+    const ev = events.find(x => x.id === selectedItem.id);
+    if (ev) {
+      ev.name = name;
+      ev.year = year;
+      ev.image = img;
+      showToast('Événement modifié !', 'success');
     }
-  }
-  
-  if (availableCards.length === 0) {
-    document.getElementById('quizEmpty').style.display = 'block';
-    document.getElementById('quizCard').style.display = 'none';
-    document.getElementById('quizResult').style.display = 'none';
-    return;
+  } else {
+    events.push({
+      id: Date.now(),
+      name, year, image: img,
+      y: 100, width: 120, height: 120
+    });
+    showToast('Événement ajouté !', 'success');
   }
 
-  // Mélanger les cartes
-  quizCards = shuffleArray([...availableCards]);
-  
-  // Réinitialiser
-  currentQuizIndex = 0;
-  quizStats = { correct: 0, wrong: 0 };
-  
-  document.getElementById('quizEmpty').style.display = 'none';
-  document.getElementById('quizCard').style.display = 'block';
-  document.getElementById('quizResult').style.display = 'none';
-  
-  showQuizCard();
+  closeModals();
+  render();
+  saveToLocalStorageSilent();
 }
 
-function showQuizCard() {
-  if (currentQuizIndex >= quizCards.length) {
-    showQuizResults();
+function savePeriod() {
+  const name = document.getElementById('periodName').value.trim();
+  const startYear = document.getElementById('periodStart').value.trim();
+  const endYear = document.getElementById('periodEnd').value.trim();
+  const color = document.getElementById('periodColor').value;
+  const height = parseInt(document.getElementById('periodHeight').value);
+
+  if (!name || !startYear || !endYear) {
+    showToast('Veuillez remplir tous les champs', 'error');
     return;
   }
 
-  const card = quizCards[currentQuizIndex];
-  
-  // Mise à jour de l'image
-  document.getElementById('quizCardImage').src = card.image;
-  
-  // Réinitialiser l'input et le feedback
-  const input = document.getElementById('quizInput');
-  input.value = '';
-  input.disabled = false;
-  input.focus(); // Focus pour pouvoir taper directement
-  
-  document.getElementById('verifyBtn').disabled = false;
-  document.getElementById('quizFeedback').style.display = 'none';
-  
-  // Reset du flag ENTER
-  if (window.resetQuizAnswered) window.resetQuizAnswered();
-  
-  // Mise à jour de la progression
-  updateQuizProgress();
-  
-  // Mise à jour des boutons de navigation
-  document.getElementById('prevCardBtn').disabled = currentQuizIndex === 0;
-  document.getElementById('nextCardBtn').disabled = false;
-}
-
-function verifyAnswer() {
-  const input = document.getElementById('quizInput');
-  const userAnswer = input.value.trim().toLowerCase();
-  
-  if (!userAnswer) {
-    showToast('Veuillez entrer une réponse', 'error');
-    return;
-  }
-
-  const card = quizCards[currentQuizIndex];
-  const correctAnswer = `${card.artist} - ${card.title} - ${card.date}`;
-  
-  // Vérification flexible
-  const artistMatch = userAnswer.includes(card.artist.toLowerCase());
-  const titleMatch = userAnswer.includes(card.title.toLowerCase());
-  
-  const isCorrect = artistMatch && titleMatch;
-  
-  // Mise à jour des stats du quiz
-  if (isCorrect) {
-    quizStats.correct++;
-  } else {
-    quizStats.wrong++;
-  }
-
-  // 📊 Mise à jour des stats de la carte
-  if (!card.stats) {
-    card.stats = { played: 0, correct: 0, wrong: 0, successRate: 0 };
-  }
-  card.stats.played++;
-  if (isCorrect) {
-    card.stats.correct++;
-  } else {
-    card.stats.wrong++;
-  }
-  // Calculer le taux de réussite
-  card.stats.successRate = Math.round((card.stats.correct / card.stats.played) * 100);
-  
-  saveToLocalStorage();
-  
-  // Afficher le feedback
-  const feedback = document.getElementById('quizFeedback');
-  feedback.style.display = 'block';
-  feedback.className = `quiz-feedback ${isCorrect ? 'correct' : 'wrong'}`;
-  
-  document.querySelector('.feedback-icon').textContent = isCorrect ? '✅' : '❌';
-  document.querySelector('.feedback-text').textContent = isCorrect ? 
-    'Bravo ! Bonne réponse' : 'Pas tout à fait...';
-  
-  // Afficher la réponse correcte avec l'erreur en gras
-  const correctAnswerEl = document.getElementById('correctAnswer');
-  if (isCorrect) {
-    correctAnswerEl.textContent = correctAnswer;
-  } else {
-    // Mettre en gras ce qui manque/est faux
-    let displayAnswer = '';
-    
-    if (!artistMatch) {
-      displayAnswer += `<strong>${card.artist}</strong> - `;
-    } else {
-      displayAnswer += `${card.artist} - `;
+  if (editMode && selectedItem?.type === 'period') {
+    const p = periods.find(x => x.id === selectedItem.id);
+    if (p) {
+      p.name = name;
+      p.startYear = startYear;
+      p.endYear = endYear;
+      p.color = color;
+      p.height = height;
+      showToast('Période modifiée !', 'success');
     }
-    
-    if (!titleMatch) {
-      displayAnswer += `<strong>${card.title}</strong> - `;
-    } else {
-      displayAnswer += `${card.title} - `;
-    }
-    
-    displayAnswer += card.date;
-    
-    // Afficher aussi ce que l'utilisateur a écrit
-    correctAnswerEl.innerHTML = `
-      <div style="margin-bottom: 10px;">
-        <strong>Votre réponse :</strong> <span style="color: var(--danger);">${escapeHtml(input.value)}</span>
-      </div>
-      <div>
-        <strong>Réponse correcte :</strong> ${displayAnswer}
-      </div>
-    `;
-  }
-  
-  // Désactiver l'input
-  input.disabled = true;
-  document.getElementById('verifyBtn').disabled = true;
-  
-  // Remettre le focus sur l'input pour que ENTER fonctionne
-  setTimeout(() => input.focus(), 100);
-  
-  updateQuizProgress();
-}
-
-function nextQuizCard() {
-  if (currentQuizIndex < quizCards.length - 1) {
-    currentQuizIndex++;
-    showQuizCard();
   } else {
-    showQuizResults();
+    periods.push({
+      id: Date.now(),
+      name, startYear, endYear, color,
+      y: 50, height
+    });
+    showToast('Période ajoutée !', 'success');
   }
+
+  closeModals();
+  render();
+  saveToLocalStorageSilent();
 }
 
-function prevQuizCard() {
-  if (currentQuizIndex > 0) {
-    currentQuizIndex--;
-    showQuizCard();
-  }
-}
+function saveArtist() {
+  const name = document.getElementById('artistName').value.trim();
+  const birthYear = document.getElementById('artistBirth').value.trim();
+  const deathYear = document.getElementById('artistDeath').value.trim();
 
-function updateQuizProgress() {
-  const progressText = document.getElementById('progressText');
-  const progressFill = document.getElementById('progressFill');
-  
-  progressText.textContent = `${currentQuizIndex + 1} / ${quizCards.length}`;
-  
-  const percentage = ((currentQuizIndex + 1) / quizCards.length) * 100;
-  progressFill.style.width = percentage + '%';
-}
-
-function showQuizResults() {
-  document.getElementById('quizCard').style.display = 'none';
-  document.getElementById('quizResult').style.display = 'block';
-  
-  const total = quizStats.correct + quizStats.wrong;
-  const percentage = total > 0 ? Math.round((quizStats.correct / total) * 100) : 0;
-  
-  document.getElementById('correctCount').textContent = quizStats.correct;
-  document.getElementById('wrongCount').textContent = quizStats.wrong;
-  document.getElementById('scorePercent').textContent = percentage + '%';
-  
-  // 📈 Sauvegarder dans l'historique
-  const historyEntry = {
-    date: new Date().toISOString(),
-    mode: quizMode,
-    total: total,
-    correct: quizStats.correct,
-    wrong: quizStats.wrong,
-    percentage: percentage
-  };
-  quizHistory.push(historyEntry);
-  saveHistoryToLocalStorage();
-  
-  // Désactiver le bouton suivant
-  document.getElementById('nextCardBtn').disabled = true;
-}
-
-// ==================== UTILS ====================
-function shuffleArray(array) {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// ==================== EXPORT / IMPORT ====================
-function exportCards() {
-  if (cards.length === 0) {
-    showToast('Aucune carte à exporter', 'error');
+  if (!name || !birthYear || !deathYear) {
+    showToast('Veuillez remplir tous les champs', 'error');
     return;
   }
 
-  const data = {
-    version: '1.0',
-    exported: new Date().toISOString(),
-    totalCards: cards.length,
-    cards: cards
-  };
+  if (editMode && selectedItem?.type === 'artist') {
+    const a = artists.find(x => x.id === selectedItem.id);
+    if (a) {
+      a.name = name;
+      a.birthYear = birthYear;
+      a.deathYear = deathYear;
+      showToast('Artiste modifié !', 'success');
+    }
+  } else {
+    artists.push({
+      id: Date.now(),
+      name, birthYear, deathYear,
+      y: settings.timelineY - 100
+    });
+    showToast('Artiste ajouté !', 'success');
+  }
 
-  const dataStr = JSON.stringify(data, null, 2);
-  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(dataBlob);
-  const link = document.createElement('a');
-  link.href = url;
-  
-  // Nom du fichier avec date
-  const date = new Date().toISOString().split('T')[0];
-  link.download = `quizart-backup-${date}.json`;
-  
-  link.click();
-  URL.revokeObjectURL(url);
-  
-  showToast(`✅ ${cards.length} carte(s) sauvegardée(s) !`, 'success');
+  closeModals();
+  render();
+  saveToLocalStorageSilent();
 }
 
-function importCards(event) {
+function editSelectedItem() {
+  if (!selectedItem) return;
+  editMode = true;
+
+  if (selectedItem.type === 'event') {
+    const ev = events.find(x => x.id === selectedItem.id);
+    if (!ev) return;
+    document.getElementById('eventModalTitle').textContent = "Modifier l'événement";
+    document.getElementById('eventName').value = ev.name;
+    document.getElementById('eventYear').value = ev.year;
+    document.getElementById('eventPreview').src = ev.image;
+    document.getElementById('eventPreview').style.display = 'block';
+    document.getElementById('eventModal').classList.add('show');
+  } else if (selectedItem.type === 'period') {
+    const p = periods.find(x => x.id === selectedItem.id);
+    if (!p) return;
+    document.getElementById('periodModalTitle').textContent = "Modifier la période";
+    document.getElementById('periodName').value = p.name;
+    document.getElementById('periodStart').value = p.startYear;
+    document.getElementById('periodEnd').value = p.endYear;
+    document.getElementById('periodColor').value = p.color || '#4299e1';
+    document.getElementById('periodHeight').value = p.height || 40;
+    document.getElementById('periodHeightValue').textContent = (p.height || 40) + 'px';
+    document.getElementById('periodModal').classList.add('show');
+  } else if (selectedItem.type === 'artist') {
+    const a = artists.find(x => x.id === selectedItem.id);
+    if (!a) return;
+    document.getElementById('artistModalTitle').textContent = "Modifier l'artiste";
+    document.getElementById('artistName').value = a.name;
+    document.getElementById('artistBirth').value = a.birthYear;
+    document.getElementById('artistDeath').value = a.deathYear;
+    document.getElementById('artistModal').classList.add('show');
+  }
+}
+
+function deleteSelectedItem() {
+  if (!selectedItem) return;
+  
+  // Confirmation avant suppression
+  const type = selectedItem.type === 'event' ? "l'événement" : 
+               selectedItem.type === 'period' ? 'la période' : "l'artiste";
+  
+  if (!confirm(`Voulez-vous vraiment supprimer ${type} ?`)) return;
+  
+  if (selectedItem.type === 'event') events = events.filter(x => x.id !== selectedItem.id);
+  if (selectedItem.type === 'period') periods = periods.filter(x => x.id !== selectedItem.id);
+  if (selectedItem.type === 'artist') artists = artists.filter(x => x.id !== selectedItem.id);
+  
+  showToast('Élément supprimé', 'info');
+  selectedItem = null;
+  document.getElementById('selectedItemActions').style.display = 'none';
+  clearSelectedText();
+  render();
+  saveToLocalStorageSilent();
+}
+
+// ==================== ACTIONS ====================
+function centerOnYearZero() {
+  const zeroX = yearToX(0);
+  viewOffset.x = (window.innerWidth / 2) - zeroX;
+  viewOffset.y = 0;
+  updateViewOffset();
+  showToast('Centré sur l\'année 0', 'info');
+}
+
+function resetView() {
+  viewOffset = { x: 0, y: 0 };
+  settings.zoom = 1;
+  document.getElementById('zoomLevel').value = 1;
+  updateViewOffset();
+  showToast('Vue réinitialisée', 'info');
+}
+
+function applyBackgroundColor() {
+  settings.bgColor = document.getElementById('bgColor').value;
+  applyBackgroundToContainer();
+  render();
+  saveToLocalStorageSilent();
+  showToast('Couleur de fond appliquée', 'success');
+}
+
+// ==================== SAUVEGARDE ====================
+function saveToFile() {
+  try {
+    const data = { events, periods, artists, settings, version: '2.0' };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `frise-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    showToast('Sauvegarde téléchargée ! 💾', 'success');
+  } catch (err) {
+    showToast('Erreur: ' + err.message, 'error');
+  }
+}
+
+function loadFromFile(event) {
   const file = event.target.files[0];
   if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    try {
-      const imported = JSON.parse(e.target.result);
-      
-      // Validation
-      if (!imported.cards || !Array.isArray(imported.cards)) {
-        showToast('❌ Fichier invalide', 'error');
-        return;
-      }
-
-      // Confirmation si des cartes existent déjà
-      if (cards.length > 0) {
-        const replace = await showConfirm(
-          'Remplacer ou ajouter ?',
-          `Vous avez déjà ${cards.length} carte(s).\n\nCliquez "Oui" pour REMPLACER toutes vos cartes par les ${imported.cards.length} carte(s) du fichier.\n\nCliquez "Non" pour AJOUTER les cartes aux existantes.`
-        );
-
-        if (replace) {
-          cards = imported.cards;
-          showToast(`✅ ${imported.cards.length} carte(s) restaurée(s) !`, 'success');
-        } else {
-          // Ajouter avec nouveaux IDs pour éviter les conflits
-          const newCards = imported.cards.map(card => ({
-            ...card,
-            id: Date.now() + Math.random(),
-            order: cards.length + card.order
-          }));
-          cards = [...cards, ...newCards];
-          showToast(`✅ ${newCards.length} carte(s) ajoutée(s) !`, 'success');
-        }
-      } else {
-        cards = imported.cards;
-        showToast(`✅ ${imported.cards.length} carte(s) restaurée(s) !`, 'success');
-      }
-
-      // Réinitialiser l'éditeur
-      currentEditId = null;
-      document.getElementById('cardEditor').style.display = 'none';
-      
-      renderCardsList();
-      saveToLocalStorage();
-      
-    } catch (err) {
-      console.error(err);
-      showToast('❌ Erreur : fichier corrompu', 'error');
-    }
-  };
-  
-  reader.readAsText(file);
-  event.target.value = ''; // Reset input
-}
-
-// ==================== HISTORY ====================
-function showHistoryModal() {
-  const modal = document.getElementById('historyModal');
-  modal.style.display = 'flex';
-  renderHistory();
-}
-
-function closeHistoryModal() {
-  document.getElementById('historyModal').style.display = 'none';
-}
-
-function renderHistory() {
-  const historyList = document.getElementById('historyList');
-  const historyChart = document.getElementById('historyChart');
-  const historyEmpty = document.querySelector('.history-empty');
-
-  if (quizHistory.length === 0) {
-    historyEmpty.style.display = 'block';
-    historyChart.style.display = 'none';
-    historyList.innerHTML = '';
-    return;
-  }
-
-  historyEmpty.style.display = 'none';
-  historyChart.style.display = 'block';
-
-  // Dessiner le graphique
-  drawProgressChart();
-
-  // Afficher la liste (inversée pour avoir les plus récents en premier)
-  historyList.innerHTML = [...quizHistory].reverse().map((entry, index) => {
-    const date = new Date(entry.date);
-    const dateStr = date.toLocaleDateString('fr-FR', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    const modeLabel = entry.mode === 'all' ? '📚 Toutes les cartes' : '⭐ À travailler';
-
-    return `
-      <div class="history-item">
-        <div class="history-header">
-          <span class="history-date">${dateStr}</span>
-          <span class="history-mode">${modeLabel}</span>
-        </div>
-        <div class="history-stats">
-          <div class="history-stat">
-            <span class="history-stat-value">${entry.total}</span>
-            <span class="history-stat-label">Questions</span>
-          </div>
-          <div class="history-stat">
-            <span class="history-stat-value" style="color: var(--success)">${entry.correct}</span>
-            <span class="history-stat-label">Réussies</span>
-          </div>
-          <div class="history-stat">
-            <span class="history-stat-value" style="color: var(--gold)">${entry.percentage}%</span>
-            <span class="history-stat-label">Score</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function drawProgressChart() {
-  const canvas = document.getElementById('progressChart');
-  const ctx = canvas.getContext('2d');
-  
-  // Configuration
-  const width = canvas.width = canvas.offsetWidth;
-  const height = canvas.height = 300;
-  const padding = 40;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
-
-  // Effacer
-  ctx.clearRect(0, 0, width, height);
-
-  if (quizHistory.length === 0) return;
-
-  // Prendre les 10 dernières sessions
-  const data = quizHistory.slice(-10);
-  const maxPoints = Math.max(...data.map(d => d.percentage), 100);
-  const step = chartWidth / (data.length - 1 || 1);
-
-  // Fond
-  ctx.fillStyle = '#FAF7F2';
-  ctx.fillRect(padding, padding, chartWidth, chartHeight);
-
-  // Grille
-  ctx.strokeStyle = '#E8DCC8';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = padding + (chartHeight / 4) * i;
-    ctx.beginPath();
-    ctx.moveTo(padding, y);
-    ctx.lineTo(padding + chartWidth, y);
-    ctx.stroke();
-
-    // Labels Y
-    ctx.fillStyle = '#5A5A5A';
-    ctx.font = '12px Georgia';
-    ctx.textAlign = 'right';
-    ctx.fillText((100 - i * 25) + '%', padding - 10, y + 4);
-  }
-
-  // Ligne de progression
-  ctx.strokeStyle = '#7C1D1D';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-
-  data.forEach((entry, index) => {
-    const x = padding + step * index;
-    const y = padding + chartHeight - (entry.percentage / 100) * chartHeight;
-    
-    if (index === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  });
-
-  ctx.stroke();
-
-  // Points
-  data.forEach((entry, index) => {
-    const x = padding + step * index;
-    const y = padding + chartHeight - (entry.percentage / 100) * chartHeight;
-    
-    // Point
-    ctx.fillStyle = '#D4AF37';
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.strokeStyle = '#7C1D1D';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Label X (index)
-    ctx.fillStyle = '#5A5A5A';
-    ctx.font = '11px Georgia';
-    ctx.textAlign = 'center';
-    ctx.fillText('#' + (quizHistory.length - data.length + index + 1), x, height - 15);
-  });
-
-  // Titre
-  ctx.fillStyle = '#7C1D1D';
-  ctx.font = 'bold 16px Georgia';
-  ctx.textAlign = 'center';
-  ctx.fillText('📈 Évolution de vos performances', width / 2, 25);
-}
-
-async function clearHistory() {
-  const confirmed = await showConfirm(
-    'Effacer l\'historique ?',
-    'Voulez-vous vraiment supprimer tout l\'historique de vos quiz ? Cette action est irréversible.'
-  );
-  
-  if (!confirmed) return;
-  
-  quizHistory = [];
-  saveHistoryToLocalStorage();
-  renderHistory();
-  showToast('Historique effacé', 'info');
-}
-
-// ==================== STORAGE ====================
-function saveToLocalStorage() {
-  try {
-    localStorage.setItem('flashcards', JSON.stringify(cards));
-  } catch (e) {
-    console.error('Erreur de sauvegarde:', e);
-  }
-}
-
-function loadFromLocalStorage() {
-  try {
-    const saved = localStorage.getItem('flashcards');
-    if (saved) {
-      cards = JSON.parse(saved);
-      // S'assurer que toutes les cartes ont les nouvelles propriétés
-      cards.forEach(card => {
-        if (!card.stats) {
-          card.stats = { played: 0, correct: 0, wrong: 0, successRate: 0 };
-        }
-        if (card.toWork === undefined) {
-          card.toWork = false;
-        }
-      });
-    }
-  } catch (e) {
-    console.error('Erreur de chargement:', e);
-    cards = [];
-  }
-}
-
-function saveHistoryToLocalStorage() {
-  try {
-    localStorage.setItem('quizHistory', JSON.stringify(quizHistory));
-  } catch (e) {
-    console.error('Erreur sauvegarde historique:', e);
-  }
-}
-
-function loadHistoryFromLocalStorage() {
-  try {
-    const saved = localStorage.getItem('quizHistory');
-    if (saved) {
-      quizHistory = JSON.parse(saved);
-    }
-  } catch (e) {
-    console.error('Erreur chargement historique:', e);
-    quizHistory = [];
-  }
-}
-
-// ==================== EXPORT / IMPORT ====================
-function exportData() {
-  const dataStr = JSON.stringify(cards, null, 2);
-  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(dataBlob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `flashcards-${Date.now()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-  showToast('Export réussi !', 'success');
-}
-
-function importData(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const imported = JSON.parse(e.target.result);
-      if (Array.isArray(imported)) {
-        cards = imported;
-        renderCardsList();
-        saveToLocalStorage();
-        showToast('Import réussi !', 'success');
-      }
+      const data = JSON.parse(e.target.result);
+      events = data.events || [];
+      periods = data.periods || [];
+      artists = data.artists || [];
+      if (data.settings) settings = { ...settings, ...data.settings };
+      
+      // Sync UI
+      document.getElementById('startYear').value = settings.startYear;
+      document.getElementById('endYear').value = settings.endYear;
+      document.getElementById('scale').value = settings.scale;
+      document.getElementById('timelineY').value = settings.timelineY;
+      document.getElementById('timelineThickness').value = settings.timelineThickness;
+      document.getElementById('zoomLevel').value = settings.zoom;
+      document.getElementById('pagesH').value = settings.pagesH;
+      document.getElementById('pagesV').value = settings.pagesV;
+      document.getElementById('bgColor').value = settings.bgColor;
+      document.getElementById('showGrid').checked = !!settings.showGrid;
+      
+      resizeCanvas();
+      applyBackgroundToContainer();
+      render();
+      showToast('Sauvegarde chargée ! 📂', 'success');
     } catch (err) {
-      showToast('Erreur d\'import', 'error');
+      showToast('Erreur: ' + err.message, 'error');
     }
   };
   reader.readAsText(file);
+  event.target.value = '';
 }
 
-// Rendre les fonctions globales pour onclick
-window.selectCard = selectCard;
-window.closeHistoryModal = closeHistoryModal;
+function saveToLocalStorage() {
+  localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
+  showToast('Sauvegarde navigateur réussie ! 💾', 'success');
+}
+
+function saveToLocalStorageSilent() {
+  try {
+    localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
+  } catch (e) {}
+}
+
+function loadFromLocalStorage() {
+  const raw = localStorage.getItem('timelineData');
+  if (!raw) {
+    showToast('Aucune sauvegarde trouvée', 'info');
+    return;
+  }
+  try {
+    const data = JSON.parse(raw);
+    events = data.events || [];
+    periods = data.periods || [];
+    artists = data.artists || [];
+    if (data.settings) settings = { ...settings, ...data.settings };
+    
+    document.getElementById('startYear').value = settings.startYear;
+    document.getElementById('endYear').value = settings.endYear;
+    document.getElementById('scale').value = settings.scale;
+    document.getElementById('timelineY').value = settings.timelineY;
+    document.getElementById('timelineThickness').value = settings.timelineThickness;
+    document.getElementById('zoomLevel').value = settings.zoom;
+    document.getElementById('pagesH').value = settings.pagesH;
+    document.getElementById('pagesV').value = settings.pagesV;
+    document.getElementById('bgColor').value = settings.bgColor;
+    document.getElementById('showGrid').checked = !!settings.showGrid;
+    
+    resizeCanvas();
+    applyBackgroundToContainer();
+    render();
+    showToast('Sauvegarde chargée !', 'success');
+  } catch (e) {
+    showToast('Erreur de chargement', 'error');
+  }
+}
+
+// ==================== START ====================
+window.addEventListener('load', init);
+window.addEventListener('resize', debounce(() => {
+  resizeCanvas();
+  render();
+}, 250));
