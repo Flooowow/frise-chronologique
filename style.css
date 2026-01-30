@@ -243,50 +243,32 @@ body {
 .canvas-container.grabbing { cursor: grabbing; }
 .canvas-container.closed { left: 0; }
 
-/* ==================== LOGO BANNER ==================== */
-.logo-banner {
-  position: fixed;
-  top: 15px;
-  left: 380px;
+/* ==================== LOGO BANNER IN SIDEBAR ==================== */
+.logo-banner-sidebar {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 15px;
   background: #7C1D1D;
-  padding: 8px 16px 8px 12px;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 900;
-  transition: left 0.3s;
+  margin-bottom: 5px;
 }
 
-.canvas-container.closed .logo-banner {
-  left: 15px;
-}
-
-.logo-circle {
-  width: 35px;
-  height: 35px;
+.logo-image-sidebar {
+  width: 45px;
+  height: 45px;
   flex-shrink: 0;
-  background: white;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
+  object-fit: cover;
 }
 
-.logo-circle svg {
-  width: 100%;
-  height: 100%;
-}
-
-.logo-text {
+.logo-text-sidebar {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.logo-text h1 {
+.logo-text-sidebar h1 {
   margin: 0;
   font-size: 18px;
   color: white;
@@ -295,7 +277,7 @@ body {
   line-height: 1;
 }
 
-.logo-text .tagline {
+.logo-text-sidebar .tagline {
   margin: 0;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.85);
