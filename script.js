@@ -45,6 +45,55 @@ function debounce(func, wait) {
   };
 }
 
+// 🔧 FONCTION DE REDIMENSIONNEMENT D'IMAGE
+function resizeImage(file, maxWidth = 400, maxHeight = 400, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculer les nouvelles dimensions en gardant le ratio
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        
+        // Créer un canvas pour redimensionner
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convertir en base64 avec compression
+        const resizedBase64 = canvas.toDataURL('image/jpeg', quality);
+        
+        console.log(`Image redimensionnée: ${img.width}x${img.height} → ${width}x${height}`);
+        resolve(resizedBase64);
+      };
+      
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function showToast(message, type = 'info') {
   const existingToast = document.querySelector('.toast');
   if (existingToast) existingToast.remove();
@@ -110,7 +159,8 @@ function toggleSection(sectionId) {
 function init() {
   resizeCanvas();
   setupEventListeners();
-  loadFromLocalStorage();
+  // 🔧 Plus de chargement automatique depuis le navigateur
+  // L'utilisateur doit charger manuellement un fichier JSON
   applyBackgroundToContainer();
   render();
 }
@@ -259,17 +309,29 @@ function setupEventListeners() {
     resizingPeriod = null;
   });
 
-  // Image preview
-  document.getElementById('eventImage').addEventListener('change', (e) => {
+  // Image preview avec redimensionnement automatique
+  document.getElementById('eventImage').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
+    
+    try {
+      // Afficher un message de chargement
       const preview = document.getElementById('eventPreview');
-      preview.src = ev.target.result;
       preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
+      preview.src = '';
+      preview.alt = 'Redimensionnement en cours...';
+      
+      // Redimensionner l'image (max 400x400, qualité 85%)
+      const resizedImage = await resizeImage(file, 400, 400, 0.85);
+      
+      preview.src = resizedImage;
+      preview.alt = 'Aperçu';
+      
+      showToast('Image optimisée !', 'success');
+    } catch (error) {
+      console.error('Erreur lors du redimensionnement:', error);
+      showToast('Erreur lors du chargement de l\'image', 'error');
+    }
   });
 
   // Raccourcis clavier
@@ -742,7 +804,7 @@ function saveEvent() {
     events.push({
       id: Date.now(),
       name, year, image: img,
-      y: 100, width: 120, height: 120
+      y: 100, width: 180, height: 180  // 🔧 Taille par défaut optimisée
     });
     showToast('Événement ajouté !', 'success');
   }
@@ -965,47 +1027,13 @@ function loadFromFile(event) {
   event.target.value = '';
 }
 
-function saveToLocalStorage() {
-  localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
-  showToast('Sauvegarde navigateur réussie ! 💾', 'success');
-}
-
+// 🔧 Sauvegarde automatique silencieuse gardée pour ne pas perdre le travail en cours
+// Elle se fait automatiquement à chaque modification
 function saveToLocalStorageSilent() {
   try {
     localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
-  } catch (e) {}
-}
-
-function loadFromLocalStorage() {
-  const raw = localStorage.getItem('timelineData');
-  if (!raw) {
-    showToast('Aucune sauvegarde trouvée', 'info');
-    return;
-  }
-  try {
-    const data = JSON.parse(raw);
-    events = data.events || [];
-    periods = data.periods || [];
-    artists = data.artists || [];
-    if (data.settings) settings = { ...settings, ...data.settings };
-    
-    document.getElementById('startYear').value = settings.startYear;
-    document.getElementById('endYear').value = settings.endYear;
-    document.getElementById('scale').value = settings.scale;
-    document.getElementById('timelineY').value = settings.timelineY;
-    document.getElementById('timelineThickness').value = settings.timelineThickness;
-    document.getElementById('zoomLevel').value = settings.zoom;
-    document.getElementById('pagesH').value = settings.pagesH;
-    document.getElementById('pagesV').value = settings.pagesV;
-    document.getElementById('bgColor').value = settings.bgColor;
-    document.getElementById('showGrid').checked = !!settings.showGrid;
-    
-    resizeCanvas();
-    applyBackgroundToContainer();
-    render();
-    showToast('Sauvegarde chargée !', 'success');
   } catch (e) {
-    showToast('Erreur de chargement', 'error');
+    console.warn('Impossible de sauvegarder automatiquement:', e);
   }
 }
 

@@ -17,6 +17,10 @@
       <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
       <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
       <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
+      
+      <div style="margin-top: 10px; padding: 10px; background: #E8DCC8; border-radius: 6px; font-size: 11px; color: #2D3436;">
+        💡 <strong>Les images sont automatiquement optimisées</strong> (400x400px max) pour de meilleures performances
+      </div>
 
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
@@ -126,8 +130,6 @@
       <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
       <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadFromFile(event)" />
       <button class="btn btn-secondary" onclick="document.getElementById('loadFile').click()">📂 Charger sauvegarde</button>
-      <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder (navigateur)</button>
-      <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger (navigateur)</button>
 
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
@@ -136,7 +138,7 @@
         <ul style="margin-top: 8px; padding-left: 20px;">
           <li><kbd>ESC</kbd> - Fermer / Désélectionner</li>
           <li><kbd>Suppr</kbd> - Supprimer sélection</li>
-          <li><kbd>Ctrl+S</kbd> - Sauvegarder</li>
+          <li><kbd>Ctrl+S</kbd> - Télécharger sauvegarde</li>
           <li><kbd>Entrée</kbd> - Valider modal</li>
         </ul>
       </div>
