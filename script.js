@@ -317,7 +317,7 @@ function setupEventListeners() {
     } else if (resizingPeriod) {
       handlePeriodResize(e);
     }
-  });
+  }, { passive: true }); // 🔧 Mode passif pour meilleures performances
 
   window.addEventListener('mouseup', () => {
     // 🔧 Sauvegarder uniquement à la fin du drag/resize pour optimiser

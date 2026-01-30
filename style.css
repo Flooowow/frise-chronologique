@@ -243,6 +243,66 @@ body {
 .canvas-container.grabbing { cursor: grabbing; }
 .canvas-container.closed { left: 0; }
 
+/* ==================== LOGO BANNER ==================== */
+.logo-banner {
+  position: fixed;
+  top: 15px;
+  left: 380px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #7C1D1D;
+  padding: 8px 16px 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 900;
+  transition: left 0.3s;
+}
+
+.canvas-container.closed .logo-banner {
+  left: 15px;
+}
+
+.logo-circle {
+  width: 35px;
+  height: 35px;
+  flex-shrink: 0;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+.logo-circle svg {
+  width: 100%;
+  height: 100%;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.logo-text h1 {
+  margin: 0;
+  font-size: 18px;
+  color: white;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 1;
+}
+
+.logo-text .tagline {
+  margin: 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  font-style: italic;
+  line-height: 1.2;
+}
+
 #timeline {
   position: absolute;
   top: 0; left: 0;
@@ -290,9 +350,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: box-shadow 0.2s, transform 0.1s;
+  transition: box-shadow 0.15s ease-out; /* 🔧 Transition plus rapide et smooth */
   will-change: transform; /* 🔧 Optimisation GPU pour les déplacements */
-  transform: translateZ(0); /* 🔧 Force l'accélération matérielle */
+  transform: translate3d(0, 0, 0); /* 🔧 Force l'accélération matérielle */
+  backface-visibility: hidden; /* 🔧 Évite les artefacts visuels */
 }
 
 .event-card:hover {
@@ -378,14 +439,15 @@ body {
   cursor: grab;
   pointer-events: all;
   user-select: none;
-  transition: opacity 0.2s, box-shadow 0.2s;
+  transition: opacity 0.15s ease-out, box-shadow 0.15s ease-out;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   gap: 4px;
-  will-change: transform; /* 🔧 Optimisation GPU */
-  transform: translateZ(0); /* 🔧 Force l'accélération matérielle */
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 .period-bar:hover {
@@ -400,12 +462,12 @@ body {
   text-align: center;
   pointer-events: all;
   cursor: text;
-  padding: 2px 6px; /* 🔧 Zone cliquable plus petite */
+  padding: 2px 6px;
   border-radius: 3px;
-  transition: background 0.2s;
+  transition: background 0.15s ease-out;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-  white-space: nowrap; /* 🔧 Empêche le retour à la ligne */
-  max-width: 90%; /* 🔧 Limite la largeur pour faciliter la sélection */
+  white-space: nowrap;
+  max-width: 90%;
 }
 
 .period-name:hover, .period-dates:hover {
@@ -473,10 +535,12 @@ body {
   border-top: 2px dashed #7C1D1D; /* Bordeaux */
   pointer-events: all;
   cursor: move;
-  padding: 30px 0;
-  transition: all 0.2s;
-  will-change: transform; /* 🔧 Optimisation GPU */
-  transform: translateZ(0); /* 🔧 Force l'accélération matérielle */
+  padding: 50px 0;
+  transition: all 0.15s ease-out;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  min-width: 50px;
 }
 
 .artist-line:hover {
