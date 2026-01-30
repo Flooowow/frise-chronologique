@@ -127,6 +127,10 @@
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
       <h3>Sauvegarde</h3>
+      <div style="padding: 10px; background: #7C1D1D; color: white; border-radius: 6px; font-size: 11px; margin-bottom: 10px;">
+        ⚠️ <strong>Important :</strong> Pensez à sauvegarder régulièrement avec Ctrl+S !<br>
+        Pas de sauvegarde automatique pour éviter la saturation.
+      </div>
       <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
       <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadFromFile(event)" />
       <button class="btn btn-secondary" onclick="document.getElementById('loadFile').click()">📂 Charger sauvegarde</button>

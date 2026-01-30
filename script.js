@@ -175,8 +175,20 @@ function resizeCanvas() {
   // Largeur minimale basée sur le nombre de pages
   const minWidth = settings.pagesH * 1400;
   
-  // Utiliser la plus grande des deux valeurs
-  canvas.width = Math.max(calculatedWidth, minWidth);
+  // 🔧 LIMITE MAXIMALE pour éviter les erreurs canvas
+  // La plupart des navigateurs limitent à 32767px ou moins
+  const MAX_CANVAS_SIZE = 30000; // Limite sécuritaire
+  
+  // Utiliser la plus grande des deux valeurs, mais limiter au maximum
+  let targetWidth = Math.max(calculatedWidth, minWidth);
+  
+  if (targetWidth > MAX_CANVAS_SIZE) {
+    targetWidth = MAX_CANVAS_SIZE;
+    console.warn(`Canvas limité à ${MAX_CANVAS_SIZE}px. Utilisez une échelle plus grande ou réduisez la plage d'années.`);
+    showToast(`⚠️ Frise limitée à ${MAX_CANVAS_SIZE}px. Augmentez l'échelle pour éviter cette limite.`, 'error');
+  }
+  
+  canvas.width = targetWidth;
   canvas.height = settings.pagesV * 800;
   eventsContainer.style.width = canvas.width + 'px';
   eventsContainer.style.height = canvas.height + 'px';
@@ -417,32 +429,43 @@ function render() {
 }
 
 function drawTimeline() {
-  const y = settings.timelineY;
-  const half = settings.timelineThickness / 2;
+  // 🔧 Vérifier si le canvas est valide
+  if (!canvas || !ctx || canvas.width === 0 || canvas.height === 0) {
+    console.error('Canvas invalide, abandon du dessin');
+    return;
+  }
+  
+  try {
+    const y = settings.timelineY;
+    const half = settings.timelineThickness / 2;
 
-  // Barre principale avec couleur crème
-  ctx.fillStyle = '#F5F0E8';
-  ctx.fillRect(0, y - half, canvas.width, settings.timelineThickness);
-  ctx.strokeStyle = '#2D3436'; // Anthracite
-  ctx.lineWidth = 5;
-  ctx.strokeRect(0, y - half, canvas.width, settings.timelineThickness);
+    // Barre principale avec couleur crème
+    ctx.fillStyle = '#F5F0E8';
+    ctx.fillRect(0, y - half, canvas.width, settings.timelineThickness);
+    ctx.strokeStyle = '#2D3436'; // Anthracite
+    ctx.lineWidth = 5;
+    ctx.strokeRect(0, y - half, canvas.width, settings.timelineThickness);
 
-  // Graduations avec accents or
-  ctx.strokeStyle = '#D4AF37'; // Or
-  ctx.lineWidth = 3;
-  ctx.fillStyle = '#2D3436'; // Anthracite
-  const fontSize = Math.max(14, Math.min(22, settings.timelineThickness * 0.45));
-  ctx.font = `bold ${fontSize}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+    // Graduations avec accents or
+    ctx.strokeStyle = '#D4AF37'; // Or
+    ctx.lineWidth = 3;
+    ctx.fillStyle = '#2D3436'; // Anthracite
+    const fontSize = Math.max(14, Math.min(22, settings.timelineThickness * 0.45));
+    ctx.font = `bold ${fontSize}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-  for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
-    const x = yearToX(year);
-    ctx.beginPath();
-    ctx.moveTo(x, y - half);
-    ctx.lineTo(x, y + half);
-    ctx.stroke();
-    ctx.fillText(year.toString(), x, y);
+    for (let year = settings.startYear; year <= settings.endYear; year += settings.scale) {
+      const x = yearToX(year);
+      ctx.beginPath();
+      ctx.moveTo(x, y - half);
+      ctx.lineTo(x, y + half);
+      ctx.stroke();
+      ctx.fillText(year.toString(), x, y);
+    }
+  } catch (error) {
+    console.error('Erreur lors du dessin de la timeline:', error);
+    showToast('Erreur de rendu. Canvas trop grand ?', 'error');
   }
 }
 
@@ -1072,14 +1095,12 @@ function loadFromFile(event) {
   event.target.value = '';
 }
 
-// 🔧 Sauvegarde automatique silencieuse gardée pour ne pas perdre le travail en cours
-// Elle se fait automatiquement à chaque modification
+// 🔧 Sauvegarde automatique DÉSACTIVÉE car elle sature le localStorage avec les images
+// Utilisez plutôt le bouton "Télécharger sauvegarde" (Ctrl+S)
 function saveToLocalStorageSilent() {
-  try {
-    localStorage.setItem('timelineData', JSON.stringify({ events, periods, artists, settings }));
-  } catch (e) {
-    console.warn('Impossible de sauvegarder automatiquement:', e);
-  }
+  // Désactivé pour éviter le dépassement de quota
+  // Les images base64 prennent trop de place dans localStorage (limite ~5-10 Mo)
+  return;
 }
 
 // ==================== START ====================
