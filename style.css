@@ -213,6 +213,23 @@ body {
   transform: translateY(0);
 }
 
+.btn-mini {
+  padding: 5px 8px;
+  border: 1px solid #E8DCC8;
+  border-radius: 4px;
+  background: white;
+  color: #2D3436;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-mini:hover {
+  background: #D4AF37;
+  color: white;
+  border-color: #D4AF37;
+}
+
 /* ==================== CANVAS CONTAINER ==================== */
 .canvas-container {
   position: fixed;

@@ -116,7 +116,17 @@ function init() {
 }
 
 function resizeCanvas() {
-  canvas.width = settings.pagesH * 1400;
+  // 🔧 Calcul dynamique de la largeur en fonction de l'échelle
+  // Plus l'échelle est petite, plus la frise est longue
+  const totalYears = settings.endYear - settings.startYear;
+  const pixelsPerYear = 140 / settings.scale; // 140px pour l'échelle par défaut (50 ans)
+  const calculatedWidth = totalYears * pixelsPerYear;
+  
+  // Largeur minimale basée sur le nombre de pages
+  const minWidth = settings.pagesH * 1400;
+  
+  // Utiliser la plus grande des deux valeurs
+  canvas.width = Math.max(calculatedWidth, minWidth);
   canvas.height = settings.pagesV * 800;
   eventsContainer.style.width = canvas.width + 'px';
   eventsContainer.style.height = canvas.height + 'px';
@@ -877,6 +887,15 @@ function deleteSelectedItem() {
 }
 
 // ==================== ACTIONS ====================
+function setScale(newScale) {
+  settings.scale = newScale;
+  document.getElementById('scale').value = newScale;
+  resizeCanvas();
+  render();
+  saveToLocalStorageSilent();
+  showToast(`Échelle : ${newScale} ans`, 'info');
+}
+
 function centerOnYearZero() {
   const zeroX = yearToX(0);
   viewOffset.x = (window.innerWidth / 2) - zeroX;
