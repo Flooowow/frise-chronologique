@@ -689,10 +689,22 @@ function drawArtists() {
   artists.forEach(a => {
     const birthX = yearToX(parseInt(a.birthYear));
     const deathX = yearToX(parseInt(a.deathYear));
-    const width = deathX - birthX;
+    
+    // 🔧 Gérer les dates inversées (erreur de saisie)
+    const startX = Math.min(birthX, deathX);
+    const endX = Math.max(birthX, deathX);
+    const width = Math.abs(endX - startX);
+    
+    // 🔧 Si les dates sont inversées, afficher un avertissement visuel
+    const isInverted = birthX > deathX;
+    
     const div = document.createElement('div');
     div.className = 'artist-line' + (selectedItem?.type === 'artist' && selectedItem?.id === a.id ? ' selected' : '');
-    div.style.left = birthX + 'px';
+    if (isInverted) {
+      div.style.borderTopColor = '#ff0000'; // Rouge si dates inversées
+      div.style.borderTopWidth = '3px';
+    }
+    div.style.left = startX + 'px';
     div.style.top = a.y + 'px';
     div.style.width = width + 'px';
 
@@ -705,7 +717,7 @@ function drawArtists() {
       <div class="artist-marker" style="left: 0;"></div>
       <div class="artist-marker" style="left: ${width - 10}px;"></div>
       <div class="artist-name" data-owner="artist" data-id="${a.id}" data-key="name"
-           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.name)}</div>
+           style="font-size:${nameSize}px; font-weight:${nameBold ? 'bold':'normal'}; white-space: nowrap; ${isInverted ? 'color: #ff0000;' : ''}">${escapeHtml(a.name)}${isInverted ? ' ⚠️ Dates inversées' : ''}</div>
       <div class="artist-dates" data-owner="artist" data-id="${a.id}" data-key="dates"
            style="font-size:${datesSize}px; font-weight:${datesBold ? 'bold':'normal'}; white-space: nowrap;">${escapeHtml(a.birthYear)} à ${escapeHtml(a.deathYear)}</div>
     `;
