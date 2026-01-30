@@ -300,12 +300,12 @@ body {
   width: 100%;
   flex: 1 1 auto;
   min-height: 50px;
-  object-fit: contain; /* 🔧 FIX: contain au lieu de cover pour ne pas couper l'image */
+  object-fit: cover; /* 🔧 cover pour remplir toute la zone sans bordures blanches */
   border-radius: 4px;
   pointer-events: none;
   user-select: none;
-  border: 1px solid #E8DCC8;
-  background: white; /* 🔧 Fond blanc pour les images avec transparence */
+  border: none; /* 🔧 Suppression de la bordure */
+  background: transparent; /* 🔧 Pas de fond blanc */
 }
 
 .event-title,
@@ -314,27 +314,28 @@ body {
   word-break: break-word;
   overflow: hidden;
   line-height: 1.2;
-  pointer-events: all;
-  cursor: text;
-  padding: 2px 4px; /* 🔧 Augmenté légèrement le padding */
+  pointer-events: none; /* 🔧 Plus sélectionnable */
+  cursor: default; /* 🔧 Curseur normal */
+  padding: 2px 4px;
   border-radius: 3px;
-  transition: background 0.2s;
-  flex-shrink: 0; /* 🔧 Empêche le texte de rétrécir */
+  flex-shrink: 0;
 }
 
-.event-title:hover,
+/* 🔧 Suppression du hover pour les événements */
+/* .event-title:hover,
 .event-year:hover {
   background: rgba(212, 175, 55, 0.15);
-}
+} */
 
 .event-title { 
-  font-size: 12px; 
+  font-size: 23px !important; /* 🔧 Taille fixe à 23px */
   font-weight: 600; 
   color: #2D3436;
 }
 
 .event-year { 
-  font-size: 10px; 
+  font-size: 20px !important; /* 🔧 Taille fixe à 20px */
+  font-weight: bold !important; /* 🔧 Toujours en gras */
   color: #7C1D1D;
 }
 

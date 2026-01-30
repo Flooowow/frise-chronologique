@@ -190,17 +190,15 @@ function setupEventListeners() {
     document.getElementById('periodHeightValue').textContent = e.target.value + 'px';
   });
 
-  // Text tools
+  // Text tools - Uniquement pour périodes et artistes
   document.getElementById('selectedTextSize').addEventListener('input', (e) => {
     const size = parseInt(e.target.value);
     document.getElementById('selectedTextSizeValue').textContent = size + 'px';
     if (!selectedTextElement) return;
 
     const { owner, obj, key } = selectedTextElement;
-    if (owner === 'event') {
-      if (key === 'title') obj.customTitleSize = size;
-      else obj.customYearSize = size;
-    } else if (owner === 'period') {
+    // 🔧 Les événements ont des tailles fixes, on ignore
+    if (owner === 'period') {
       if (key === 'name') obj.nameSize = size;
       else obj.datesSize = size;
     } else if (owner === 'artist') {
@@ -216,10 +214,8 @@ function setupEventListeners() {
     if (!selectedTextElement) return;
 
     const { owner, obj, key } = selectedTextElement;
-    if (owner === 'event') {
-      if (key === 'title') obj.customTitleBold = bold;
-      else obj.customYearBold = bold;
-    } else if (owner === 'period') {
+    // 🔧 Les événements ont des styles fixes, on ignore
+    if (owner === 'period') {
       if (key === 'name') obj.nameBold = bold;
       else obj.datesBold = bold;
     } else if (owner === 'artist') {
@@ -376,17 +372,11 @@ function drawEvents() {
     card.style.width = ev.width + 'px';
     card.style.height = ev.height + 'px';
 
-    const titleSize = ev.customTitleSize || 12;
-    const titleBold = ev.customTitleBold ? 'bold' : 'normal';
-    const yearSize = ev.customYearSize || 10;
-    const yearBold = ev.customYearBold ? 'bold' : 'normal';
-
+    // 🔧 Tailles fixes : 23px pour le titre, 20px gras pour l'année
     card.innerHTML = `
       <img src="${ev.image}" alt="${escapeHtml(ev.name)}">
-      <div class="event-title" data-owner="event" data-id="${ev.id}" data-key="title"
-           style="font-size:${titleSize}px; font-weight:${titleBold}">${escapeHtml(ev.name)}</div>
-      <div class="event-year" data-owner="event" data-id="${ev.id}" data-key="year"
-           style="font-size:${yearSize}px; font-weight:${yearBold}">${escapeHtml(String(ev.year))}</div>
+      <div class="event-title" data-owner="event" data-id="${ev.id}" data-key="title">${escapeHtml(ev.name)}</div>
+      <div class="event-year" data-owner="event" data-id="${ev.id}" data-key="year">${escapeHtml(String(ev.year))}</div>
       <div class="resize-corner"></div>
     `;
 
@@ -427,13 +417,14 @@ function drawEvents() {
       draggedItem = { type: 'event', item: ev, offsetY: m.y - ev.y };
     });
 
-    // Texte sélectionnable
-    card.querySelectorAll('[data-owner="event"]').forEach(el => {
+    // Texte sélectionnable - DÉSACTIVÉ pour les événements
+    // Les tailles sont maintenant fixes (23px titre, 20px année en gras)
+    /* card.querySelectorAll('[data-owner="event"]').forEach(el => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         selectTextElement(el);
       });
-    });
+    }); */
 
     eventsContainer.appendChild(card);
     
@@ -667,8 +658,10 @@ function selectTextElement(domEl) {
   const id = parseInt(domEl.dataset.id);
   const key = domEl.dataset.key;
 
+  // 🔧 Ignorer les événements (tailles fixes)
+  if (owner === 'event') return;
+
   let obj = null;
-  if (owner === 'event') obj = events.find(x => x.id === id);
   if (owner === 'period') obj = periods.find(x => x.id === id);
   if (owner === 'artist') obj = artists.find(x => x.id === id);
   if (!obj) return;
@@ -678,10 +671,7 @@ function selectTextElement(domEl) {
   document.getElementById('textStyleTools').style.display = 'block';
 
   let size = 12, bold = false;
-  if (owner === 'event') {
-    if (key === 'title') { size = obj.customTitleSize || 12; bold = obj.customTitleBold ?? false; }
-    if (key === 'year') { size = obj.customYearSize || 10; bold = obj.customYearBold ?? false; }
-  } else if (owner === 'period') {
+  if (owner === 'period') {
     if (key === 'name') { size = obj.nameSize || 13; bold = obj.nameBold ?? true; }
     if (key === 'dates') { size = obj.datesSize || 11; bold = obj.datesBold ?? false; }
   } else if (owner === 'artist') {
