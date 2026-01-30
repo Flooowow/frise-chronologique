@@ -12,82 +12,80 @@
     <button id="toggleMenu" class="toggle-btn" aria-label="Basculer le menu">◀</button>
 
     <div class="sidebar-content">
-      <h2>Paramètres de la frise</h2>
-
-      <div class="form-group">
-        <label for="startYear">Année début</label>
-        <input type="number" id="startYear" value="-500" />
-      </div>
-
-      <div class="form-group">
-        <label for="endYear">Année fin</label>
-        <input type="number" id="endYear" value="2000" />
-      </div>
-
-      <div class="form-group">
-        <label for="scale">Échelle (graduation principale)</label>
-        <input type="number" id="scale" value="50" />
-      </div>
-
-      <div class="form-group">
-        <label for="pagesH">Pages horizontales</label>
-        <input type="number" id="pagesH" min="1" max="10" value="3" />
-      </div>
-
-      <div class="form-group">
-        <label for="pagesV">Pages verticales</label>
-        <input type="number" id="pagesV" min="1" max="10" value="2" />
-      </div>
-
-      <div class="form-group">
-        <label for="timelineThickness">Épaisseur de la frise</label>
-        <input type="range" id="timelineThickness" min="20" max="80" value="40" />
-      </div>
-
-      <div class="form-group">
-        <label for="timelineY">Position frise (Y)</label>
-        <input type="range" id="timelineY" min="50" max="2000" value="300" />
-      </div>
-
-      <div class="form-group">
-        <label for="zoomLevel">Zoom</label>
-        <input type="range" id="zoomLevel" min="0.5" max="3" step="0.1" value="1" />
-      </div>
-
-      <div class="form-group">
-        <label for="bgColor">Couleur du fond</label>
-        <input type="color" id="bgColor" value="#F5F0E8" />
-        <button class="btn btn-secondary" onclick="applyBackgroundColor()" style="margin-top: 5px;">
-          Appliquer
-        </button>
-      </div>
-
-      <div class="form-group">
-        <label>
-          <input type="checkbox" id="showGrid" checked />
-          Afficher le quadrillage
-        </label>
-      </div>
-
-      <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
-      <button class="btn btn-secondary" onclick="resetView()">🔄 Réinitialiser la vue</button>
-      
-      <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
-      
-      <h3>Ajouter des éléments</h3>
+      <!-- Ajouter des éléments (priorité) -->
+      <h2>Ajouter des éléments</h2>
       <button class="btn btn-blue" onclick="showEventModal()">➕ Ajouter événement</button>
       <button class="btn btn-purple" onclick="showPeriodModal()">➕ Ajouter période</button>
       <button class="btn btn-green" onclick="showArtistModal()">➕ Ajouter artiste</button>
 
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
-      <h3>Sauvegarde</h3>
-      <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
-      <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadFromFile(event)" />
-      <button class="btn btn-secondary" onclick="document.getElementById('loadFile').click()">📂 Charger sauvegarde</button>
-      <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder (navigateur)</button>
-      <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger (navigateur)</button>
+      <!-- Paramètres repliables -->
+      <div class="collapsible-section">
+        <h2 class="collapsible-header" onclick="toggleSection('friseSettings')">
+          <span class="toggle-icon">▼</span> Paramètres de la frise
+        </h2>
+        <div id="friseSettings" class="collapsible-content collapsed">
+          <div class="form-group">
+            <label for="startYear">Année début</label>
+            <input type="number" id="startYear" value="-500" />
+          </div>
 
+          <div class="form-group">
+            <label for="endYear">Année fin</label>
+            <input type="number" id="endYear" value="2000" />
+          </div>
+
+          <div class="form-group">
+            <label for="scale">Échelle (graduation principale)</label>
+            <input type="number" id="scale" value="50" />
+          </div>
+
+          <div class="form-group">
+            <label for="pagesH">Pages horizontales</label>
+            <input type="number" id="pagesH" min="1" max="10" value="3" />
+          </div>
+
+          <div class="form-group">
+            <label for="pagesV">Pages verticales</label>
+            <input type="number" id="pagesV" min="1" max="10" value="2" />
+          </div>
+
+          <div class="form-group">
+            <label for="timelineThickness">Épaisseur de la frise</label>
+            <input type="range" id="timelineThickness" min="20" max="80" value="40" />
+          </div>
+
+          <div class="form-group">
+            <label for="timelineY">Position frise (Y)</label>
+            <input type="range" id="timelineY" min="50" max="2000" value="300" />
+          </div>
+
+          <div class="form-group">
+            <label for="zoomLevel">Zoom</label>
+            <input type="range" id="zoomLevel" min="0.5" max="3" step="0.1" value="1" />
+          </div>
+
+          <div class="form-group">
+            <label for="bgColor">Couleur du fond</label>
+            <input type="color" id="bgColor" value="#F5F0E8" />
+            <button class="btn btn-secondary" onclick="applyBackgroundColor()" style="margin-top: 5px;">
+              Appliquer
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="showGrid" checked />
+              Afficher le quadrillage
+            </label>
+          </div>
+
+          <button class="btn btn-primary" onclick="centerOnYearZero()">📍 Centrer sur l'année 0</button>
+          <button class="btn btn-secondary" onclick="resetView()">🔄 Réinitialiser la vue</button>
+        </div>
+      </div>
+      
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
       <div id="textStyleTools" style="display:none; padding: 15px; background: #F5F0E8; border-radius: 8px;">
@@ -109,6 +107,15 @@
         <button class="btn btn-warning" onclick="editSelectedItem()">✏️ Modifier</button>
         <button class="btn btn-danger" onclick="deleteSelectedItem()">🗑️ Supprimer</button>
       </div>
+
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
+
+      <h3>Sauvegarde</h3>
+      <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
+      <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadFromFile(event)" />
+      <button class="btn btn-secondary" onclick="document.getElementById('loadFile').click()">📂 Charger sauvegarde</button>
+      <button class="btn btn-success" onclick="saveToLocalStorage()">💾 Sauvegarder (navigateur)</button>
+      <button class="btn btn-secondary" onclick="loadFromLocalStorage()">📂 Charger (navigateur)</button>
 
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 

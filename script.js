@@ -24,7 +24,7 @@ let dragStart = { x: 0, y: 0 };
 let viewOffset = { x: 0, y: 0 };
 let draggedItem = null;
 let resizingItem = null;
-let resizingPeriod = null; // 🔧 Nouveau pour les périodes
+let resizingPeriod = null;
 let editMode = false;
 
 const canvas = document.getElementById('timeline');
@@ -88,6 +88,22 @@ function escapeHtml(str) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+// ==================== COLLAPSIBLE SECTIONS ====================
+function toggleSection(sectionId) {
+  const section = document.getElementById(sectionId);
+  const header = section.previousElementSibling;
+  const icon = header.querySelector('.toggle-icon');
+  
+  section.classList.toggle('collapsed');
+  
+  // Rotation de l'icône
+  if (section.classList.contains('collapsed')) {
+    icon.style.transform = 'rotate(-90deg)';
+  } else {
+    icon.style.transform = 'rotate(0deg)';
+  }
 }
 
 // ==================== INIT ====================
@@ -411,7 +427,7 @@ function drawEvents() {
 
     eventsContainer.appendChild(card);
     
-    // 🔧 FIX: Gestion du resize corner - une seule fois !
+    // Gestion du resize corner
     const resizeCorner = card.querySelector('.resize-corner');
     resizeCorner.addEventListener('mousedown', (e) => {
       e.stopPropagation();
@@ -507,7 +523,7 @@ function drawPeriods() {
   });
 }
 
-// 🔧 GESTION DU REDIMENSIONNEMENT DES PÉRIODES
+// 🔧 GESTION DU REDIMENSIONNEMENT DES PÉRIODES - En largeur uniquement
 function handlePeriodResize(e) {
   if (!resizingPeriod) return;
   
@@ -519,16 +535,16 @@ function handlePeriodResize(e) {
     const newStart = resizingPeriod.originalStart + deltaYear;
     const currentEnd = parseInt(resizingPeriod.item.endYear);
     
-    // Empêcher que le début dépasse la fin
-    if (newStart < currentEnd - 10) { // Minimum 10 ans
+    // Empêcher que le début dépasse la fin (minimum 10 ans)
+    if (newStart < currentEnd - 10) {
       resizingPeriod.item.startYear = String(newStart);
     }
   } else if (resizingPeriod.side === 'right') {
     const newEnd = resizingPeriod.originalEnd + deltaYear;
     const currentStart = parseInt(resizingPeriod.item.startYear);
     
-    // Empêcher que la fin soit avant le début
-    if (newEnd > currentStart + 10) { // Minimum 10 ans
+    // Empêcher que la fin soit avant le début (minimum 10 ans)
+    if (newEnd > currentStart + 10) {
       resizingPeriod.item.endYear = String(newEnd);
     }
   }
