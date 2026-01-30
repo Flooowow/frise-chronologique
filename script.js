@@ -198,6 +198,11 @@ function setupEventListeners() {
     render();
     saveToLocalStorageSilent();
   }, 150);
+  
+  // 🔧 Sauvegarde séparée pour éviter les appels trop fréquents
+  const debouncedSave = debounce(() => {
+    saveToLocalStorageSilent();
+  }, 1000);
 
   const updateSetting = (id, key, parser = parseInt, needsResize = false) => {
     document.getElementById(id).addEventListener('change', (e) => {
@@ -225,8 +230,9 @@ function setupEventListeners() {
 
   document.getElementById('zoomLevel').addEventListener('input', (e) => {
     settings.zoom = parseFloat(e.target.value);
-    updateViewOffset();
-    saveToLocalStorageSilent();
+    updateViewOffset(); // 🔧 Pas de render() ici, juste le transform
+    // La sauvegarde se fait avec debounce
+    debouncedSave();
   });
 
   document.getElementById('showGrid').addEventListener('change', (e) => {
@@ -302,6 +308,11 @@ function setupEventListeners() {
   });
 
   window.addEventListener('mouseup', () => {
+    // 🔧 Sauvegarder uniquement à la fin du drag/resize pour optimiser
+    if (isDraggingCanvas || draggedItem || resizingItem || resizingPeriod) {
+      saveToLocalStorageSilent();
+    }
+    
     isDraggingCanvas = false;
     container.classList.remove('grabbing');
     draggedItem = null;
@@ -377,11 +388,25 @@ function applyBackgroundToContainer() {
 }
 
 function updateViewOffset() {
-  canvas.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
-  eventsContainer.style.transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
+  const transform = `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${settings.zoom})`;
+  canvas.style.transform = transform;
+  eventsContainer.style.transform = transform;
 }
 
 // ==================== RENDER ====================
+let renderScheduled = false;
+
+// 🔧 Utiliser requestAnimationFrame pour des animations fluides
+function scheduleRender() {
+  if (!renderScheduled) {
+    renderScheduled = true;
+    requestAnimationFrame(() => {
+      render();
+      renderScheduled = false;
+    });
+  }
+}
+
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawTimeline();
@@ -423,7 +448,13 @@ function drawTimeline() {
 
 // ==================== EVENTS ====================
 function drawEvents() {
-  document.querySelectorAll('.event-card, .connection-line').forEach(el => el.remove());
+  // 🔧 Suppression en une seule fois
+  const toRemove = document.querySelectorAll('.event-card, .connection-line');
+  toRemove.forEach(el => el.remove());
+
+  // 🔧 Utiliser un fragment pour ajouter tous les éléments d'un coup
+  const fragment = document.createDocumentFragment();
+  const lineFragment = document.createDocumentFragment();
 
   events.forEach(ev => {
     const x = yearToX(parseInt(ev.year));
@@ -455,7 +486,7 @@ function drawEvents() {
       line.style.left = x + 'px';
       line.style.top = eventBottom + 'px';
       line.style.height = (timelineTop - eventBottom) + 'px';
-      eventsContainer.appendChild(line);
+      lineFragment.appendChild(line); // 🔧 Ajouter au fragment
     } else if (ev.y > timelineBottom) {
       // En-dessous
       const line = document.createElement('div');
@@ -463,7 +494,7 @@ function drawEvents() {
       line.style.left = x + 'px';
       line.style.top = timelineBottom + 'px';
       line.style.height = (ev.y - timelineBottom) + 'px';
-      eventsContainer.appendChild(line);
+      lineFragment.appendChild(line); // 🔧 Ajouter au fragment
     }
 
     // Event listeners
@@ -488,7 +519,7 @@ function drawEvents() {
       });
     }); */
 
-    eventsContainer.appendChild(card);
+    fragment.appendChild(card); // 🔧 Ajouter au fragment
     
     // Gestion du resize corner
     const resizeCorner = card.querySelector('.resize-corner');
@@ -505,11 +536,18 @@ function drawEvents() {
       };
     });
   });
+  
+  // 🔧 Ajouter tous les éléments d'un coup (1 seul reflow au lieu de N)
+  eventsContainer.appendChild(lineFragment);
+  eventsContainer.appendChild(fragment);
 }
 
 // ==================== PERIODS ====================
 function drawPeriods() {
   document.querySelectorAll('.period-bar').forEach(el => el.remove());
+
+  // 🔧 Utiliser un fragment pour ajouter tous les éléments d'un coup
+  const fragment = document.createDocumentFragment();
 
   periods.forEach(p => {
     const startX = yearToX(parseInt(p.startYear));
@@ -582,8 +620,11 @@ function drawPeriods() {
       };
     });
 
-    eventsContainer.appendChild(div);
+    fragment.appendChild(div); // 🔧 Ajouter au fragment
   });
+  
+  // 🔧 Ajouter tous les éléments d'un coup
+  eventsContainer.appendChild(fragment);
 }
 
 // 🔧 GESTION DU REDIMENSIONNEMENT DES PÉRIODES - En largeur uniquement
@@ -612,13 +653,15 @@ function handlePeriodResize(e) {
     }
   }
   
-  render();
-  saveToLocalStorageSilent();
+  scheduleRender(); // 🔧 Utiliser scheduleRender
 }
 
 // ==================== ARTISTS ====================
 function drawArtists() {
   document.querySelectorAll('.artist-line').forEach(el => el.remove());
+
+  // 🔧 Utiliser un fragment pour ajouter tous les éléments d'un coup
+  const fragment = document.createDocumentFragment();
 
   artists.forEach(a => {
     const birthX = yearToX(parseInt(a.birthYear));
@@ -662,8 +705,11 @@ function drawArtists() {
       });
     });
 
-    eventsContainer.appendChild(div);
+    fragment.appendChild(div); // 🔧 Ajouter au fragment
   });
+  
+  // 🔧 Ajouter tous les éléments d'un coup
+  eventsContainer.appendChild(fragment);
 }
 
 function handleDrag(e) {
@@ -673,8 +719,8 @@ function handleDrag(e) {
   // Déplacement vertical illimité
   item.y = m.y - draggedItem.offsetY;
   
-  render();
-  saveToLocalStorageSilent();
+  scheduleRender(); // 🔧 Utiliser scheduleRender au lieu de render
+  // La sauvegarde se fait uniquement au mouseup pour éviter trop d'appels
 }
 
 function handleResize(e) {
@@ -687,8 +733,7 @@ function handleResize(e) {
     const d = Math.max(dx, dy);
     ev.width = Math.max(80, resizingItem.startW + d);
     ev.height = Math.max(80, resizingItem.startH + d);
-    render();
-    saveToLocalStorageSilent();
+    scheduleRender(); // 🔧 Utiliser scheduleRender
   }
 }
 
