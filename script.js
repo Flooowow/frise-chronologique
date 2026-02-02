@@ -226,7 +226,15 @@ function setupEventListeners() {
 
   updateSetting('startYear', 'startYear');
   updateSetting('endYear', 'endYear');
-  updateSetting('scale', 'scale');
+  
+  // 🔧 Échelle avec re-render complet pour repositionner tous les éléments
+  document.getElementById('scale').addEventListener('change', (e) => {
+    settings.scale = parseInt(e.target.value);
+    resizeCanvas();
+    render(); // Render immédiat pour repositionner
+    saveToLocalStorageSilent();
+  });
+  
   updateSetting('pagesH', 'pagesH', parseInt, true);
   updateSetting('pagesV', 'pagesV', parseInt, true);
 
@@ -1023,7 +1031,7 @@ function setScale(newScale) {
   settings.scale = newScale;
   document.getElementById('scale').value = newScale;
   resizeCanvas();
-  render();
+  render(); // 🔧 Render pour repositionner tous les éléments
   saveToLocalStorageSilent();
   showToast(`Échelle : ${newScale} ans`, 'info');
 }

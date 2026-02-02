@@ -349,12 +349,12 @@ body {
   width: 100%;
   flex: 1 1 auto;
   min-height: 50px;
-  object-fit: cover; /* 🔧 cover pour remplir toute la zone sans bordures blanches */
+  object-fit: contain; /* 🔧 contain pour voir le tableau en entier */
   border-radius: 4px;
   pointer-events: none;
   user-select: none;
-  border: none; /* 🔧 Suppression de la bordure */
-  background: transparent; /* 🔧 Pas de fond blanc */
+  border: none;
+  background: white; /* 🔧 Fond blanc pour les zones vides */
 }
 
 .event-title,
