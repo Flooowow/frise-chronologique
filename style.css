@@ -321,22 +321,22 @@ body {
 /* ==================== EVENTS ==================== */
 .event-card {
   position: absolute;
-  background: #F5F0E8; /* Crème */
+  background: #F5F0E8; /* Crème pour la zone texte uniquement */
   border: 2px solid #E8DCC8; /* Beige */
   border-radius: 8px;
-  padding: 8px;
+  padding: 0; /* 🔧 ZERO padding */
   box-shadow: 0 2px 8px rgba(45, 52, 54, 0.15);
   cursor: grab;
   pointer-events: all;
   user-select: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0; /* 🔧 Pas d'espace entre image et texte */
   transition: box-shadow 0.15s ease-out;
   will-change: transform;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
-  overflow: hidden;
+  overflow: hidden; /* 🔧 Pour que l'image ne dépasse pas */
 }
 
 .event-card:hover {
@@ -348,13 +348,13 @@ body {
 
 .event-card img {
   width: 100%;
-  height: 100%; /* 🔧 Prend toute la hauteur de la carte */
-  object-fit: contain; /* 🔧 CONTAIN = montre tout le tableau */
-  border-radius: 4px;
+  height: calc(100% - 60px); /* 🔧 Prend toute la hauteur sauf 60px pour les textes */
+  object-fit: cover; /* 🔧 COVER pour remplir sans bandes blanches */
+  border-radius: 6px 6px 0 0; /* 🔧 Arrondi seulement en haut */
   pointer-events: none;
   user-select: none;
   border: none;
-  background: transparent; /* 🔧 Pas de fond pour voir le crème de la carte */
+  background: transparent;
   display: block;
 }
 
@@ -366,21 +366,24 @@ body {
   line-height: 1.2;
   pointer-events: none;
   cursor: default;
-  padding: 2px 4px;
-  border-radius: 3px;
+  padding: 3px 6px; /* 🔧 Petit padding pour aérer */
+  border-radius: 0; /* 🔧 Pas d'arrondi */
   flex-shrink: 0;
+  background: #F5F0E8; /* 🔧 Fond crème */
 }
 
 .event-title { 
   font-size: 23px !important;
   font-weight: 600; 
   color: #2D3436;
+  padding-top: 6px; /* 🔧 Un peu plus d'espace en haut */
 }
 
 .event-year { 
   font-size: 20px !important;
   font-weight: bold !important;
   color: #7C1D1D;
+  padding-bottom: 6px; /* 🔧 Un peu plus d'espace en bas */
 }
 
 /* Resize handle */

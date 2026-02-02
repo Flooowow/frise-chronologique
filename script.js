@@ -915,14 +915,14 @@ function saveEvent() {
       width = Math.round(200 * ratio);
     }
     
-    // Ajouter un peu pour les textes
-    height += 80;
+    // 🔧 Ajouter 60px pour les textes (titre + date)
+    height += 60;
     
     events.push({
       id: Date.now(),
       name, year, image: img,
       y: 100, 
-      width: Math.max(120, width),
+      width: Math.max(100, width),
       height: Math.max(120, height)
     });
     showToast('Événement ajouté !', 'success');
