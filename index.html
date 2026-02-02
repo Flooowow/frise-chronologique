@@ -145,6 +145,14 @@
       <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
       <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadFromFile(event)" />
       <button class="btn btn-secondary" onclick="document.getElementById('loadFile').click()">📂 Charger sauvegarde</button>
+      
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
+      
+      <h3>Maintenance</h3>
+      <button class="btn btn-warning" onclick="clearCache()">🧹 Vider le cache navigateur</button>
+      <small style="display: block; margin-top: 5px; color: #7C1D1D; font-size: 10px;">
+        Libère de l'espace si le navigateur ralentit
+      </small>
 
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 

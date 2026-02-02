@@ -1123,6 +1123,29 @@ function saveToLocalStorageSilent() {
   return;
 }
 
+// 🔧 Fonction pour vider le cache et libérer de l'espace
+function clearCache() {
+  if (!confirm('Vider le cache du navigateur ? Cela supprimera toutes les données temporaires.\n\nAssurez-vous d\'avoir sauvegardé votre travail !')) {
+    return;
+  }
+  
+  try {
+    // Vider le localStorage
+    localStorage.clear();
+    
+    // Vider le sessionStorage
+    sessionStorage.clear();
+    
+    // Informer l'utilisateur
+    showToast('Cache vidé ! Rechargez la page pour un redémarrage propre.', 'success');
+    
+    console.log('Cache vidé avec succès');
+  } catch (e) {
+    showToast('Erreur lors du vidage du cache', 'error');
+    console.error('Erreur cache:', e);
+  }
+}
+
 // ==================== START ====================
 window.addEventListener('load', init);
 window.addEventListener('resize', debounce(() => {

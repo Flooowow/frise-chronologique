@@ -198,7 +198,7 @@ body {
 .btn-blue { background: #2D3436; color: #F5F0E8; } /* Anthracite */
 .btn-purple { background: #7C1D1D; color: #F5F0E8; } /* Bordeaux */
 .btn-green { background: #2D3436; color: #F5F0E8; } /* Anthracite */
-.btn-warning { background: #D4AF37; color: #2D3436; } /* Or */
+.btn-warning { background: #D4AF37; color: #2D3436; font-weight: 600; } /* Or */
 .btn-danger { background: #7C1D1D; color: #F5F0E8; } /* Bordeaux */
 .btn-success { background: #2D3436; color: #F5F0E8; } /* Anthracite */
 .btn-secondary { background: #E8DCC8; color: #2D3436; } /* Beige */
@@ -324,7 +324,8 @@ body {
   background: #F5F0E8; /* Crème */
   border: 2px solid #E8DCC8; /* Beige */
   border-radius: 8px;
-  padding: 8px;
+  padding: 0; /* 🔧 Pas de padding pour coller à l'image */
+  padding-bottom: 8px; /* 🔧 Padding seulement en bas pour les textes */
   box-shadow: 0 2px 8px rgba(45, 52, 54, 0.15);
   cursor: grab;
   pointer-events: all;
@@ -332,10 +333,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: box-shadow 0.15s ease-out; /* 🔧 Transition plus rapide et smooth */
-  will-change: transform; /* 🔧 Optimisation GPU pour les déplacements */
-  transform: translate3d(0, 0, 0); /* 🔧 Force l'accélération matérielle */
-  backface-visibility: hidden; /* 🔧 Évite les artefacts visuels */
+  transition: box-shadow 0.15s ease-out;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  overflow: hidden; /* 🔧 Cache les débordements */
 }
 
 .event-card:hover {
@@ -347,14 +349,15 @@ body {
 
 .event-card img {
   width: 100%;
-  flex: 1 1 auto;
+  height: auto; /* 🔧 Hauteur automatique selon le ratio de l'image */
   min-height: 50px;
-  object-fit: contain; /* 🔧 contain pour voir le tableau en entier */
-  border-radius: 4px;
+  object-fit: contain;
+  border-radius: 4px 4px 0 0; /* 🔧 Arrondi seulement en haut */
   pointer-events: none;
   user-select: none;
   border: none;
-  background: white; /* 🔧 Fond blanc pour les zones vides */
+  background: transparent; /* 🔧 Pas de fond blanc */
+  display: block; /* 🔧 Évite l'espace en bas de l'image */
 }
 
 .event-title,
@@ -363,9 +366,9 @@ body {
   word-break: break-word;
   overflow: hidden;
   line-height: 1.2;
-  pointer-events: none; /* 🔧 Plus sélectionnable */
-  cursor: default; /* 🔧 Curseur normal */
-  padding: 2px 4px;
+  pointer-events: none;
+  cursor: default;
+  padding: 2px 8px; /* 🔧 Padding horizontal pour les textes */
   border-radius: 3px;
   flex-shrink: 0;
 }
