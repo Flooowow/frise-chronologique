@@ -358,6 +358,15 @@ function setupEventListeners() {
       preview.src = resizedImage;
       preview.alt = 'Aperçu';
       
+      // 🔧 Stocker les dimensions réelles de l'image pour le ratio
+      const img = new Image();
+      img.onload = () => {
+        preview.dataset.width = img.width;
+        preview.dataset.height = img.height;
+        preview.dataset.ratio = (img.width / img.height).toFixed(3);
+      };
+      img.src = resizedImage;
+      
       showToast('Image optimisée !', 'success');
     } catch (error) {
       console.error('Erreur lors du redimensionnement:', error);
@@ -773,10 +782,12 @@ function handleResize(e) {
     const ev = resizingItem.item;
     const dx = m.x - resizingItem.startX;
     const dy = m.y - resizingItem.startY;
-    const d = Math.max(dx, dy);
-    ev.width = Math.max(80, resizingItem.startW + d);
-    ev.height = Math.max(80, resizingItem.startH + d);
-    scheduleRender(); // 🔧 Utiliser scheduleRender
+    
+    // 🔧 Redimensionnement indépendant en largeur et hauteur
+    ev.width = Math.max(80, resizingItem.startW + dx);
+    ev.height = Math.max(80, resizingItem.startH + dy);
+    
+    scheduleRender();
   }
 }
 
@@ -889,10 +900,30 @@ function saveEvent() {
       showToast('Événement modifié !', 'success');
     }
   } else {
+    // 🔧 Calculer les dimensions selon le ratio de l'image
+    const preview = document.getElementById('eventPreview');
+    const ratio = parseFloat(preview.dataset.ratio) || 1;
+    
+    let width, height;
+    if (ratio > 1) {
+      // Image horizontale
+      width = 200;
+      height = Math.round(200 / ratio);
+    } else {
+      // Image verticale ou carrée
+      height = 200;
+      width = Math.round(200 * ratio);
+    }
+    
+    // Ajouter un peu pour les textes
+    height += 80;
+    
     events.push({
       id: Date.now(),
       name, year, image: img,
-      y: 100, width: 180, height: 180  // 🔧 Taille par défaut optimisée
+      y: 100, 
+      width: Math.max(120, width),
+      height: Math.max(120, height)
     });
     showToast('Événement ajouté !', 'success');
   }

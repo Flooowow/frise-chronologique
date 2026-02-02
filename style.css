@@ -348,14 +348,13 @@ body {
 
 .event-card img {
   width: 100%;
-  flex: 1 1 auto;
-  min-height: 50px;
-  object-fit: cover; /* 🔧 COVER = remplit toute la zone sans bandes blanches */
+  height: 100%; /* 🔧 Prend toute la hauteur de la carte */
+  object-fit: contain; /* 🔧 CONTAIN = montre tout le tableau */
   border-radius: 4px;
   pointer-events: none;
   user-select: none;
   border: none;
-  background: #F5F0E8;
+  background: transparent; /* 🔧 Pas de fond pour voir le crème de la carte */
   display: block;
 }
 
