@@ -321,12 +321,13 @@ body {
 /* ==================== EVENTS ==================== */
 .event-card {
   position: absolute;
-  background: #F5F0E8; /* Crème */
-  border: 2px solid #E8DCC8; /* Beige */
-  border-radius: 8px;
-  padding: 0; /* 🔧 Pas de padding pour coller à l'image */
-  padding-bottom: 8px; /* 🔧 Padding seulement en bas pour les textes */
-  box-shadow: 0 2px 8px rgba(45, 52, 54, 0.15);
+  background: white; /* 🔧 Fond blanc pour la zone texte */
+  border: 3px solid #2D3436; /* 🔧 Contour noir épais */
+  border-top: none; /* 🔧 Pas de bordure en haut (déjà sur l'image) */
+  border-radius: 0 0 8px 8px; /* 🔧 Arrondi seulement en bas */
+  padding: 0;
+  padding: 8px 8px 8px 8px; /* 🔧 Padding pour la zone texte */
+  box-shadow: 0 4px 12px rgba(45, 52, 54, 0.3); /* 🔧 Ombre plus marquée */
   cursor: grab;
   pointer-events: all;
   user-select: none;
@@ -337,7 +338,7 @@ body {
   will-change: transform;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
-  overflow: hidden; /* 🔧 Cache les débordements */
+  overflow: visible; /* 🔧 Pour voir le contour de l'image */
 }
 
 .event-card:hover {
@@ -349,15 +350,17 @@ body {
 
 .event-card img {
   width: 100%;
-  height: auto; /* 🔧 Hauteur automatique selon le ratio de l'image */
+  height: auto;
   min-height: 50px;
   object-fit: contain;
-  border-radius: 4px 4px 0 0; /* 🔧 Arrondi seulement en haut */
+  border-radius: 4px 4px 0 0;
   pointer-events: none;
   user-select: none;
-  border: none;
-  background: transparent; /* 🔧 Pas de fond blanc */
-  display: block; /* 🔧 Évite l'espace en bas de l'image */
+  border: 3px solid #2D3436; /* 🔧 Contour noir épais autour du tableau */
+  border-bottom: none; /* 🔧 Pas de bordure en bas pour lier avec le texte */
+  background: white;
+  display: block;
+  box-sizing: border-box;
 }
 
 .event-title,
@@ -368,9 +371,10 @@ body {
   line-height: 1.2;
   pointer-events: none;
   cursor: default;
-  padding: 2px 8px; /* 🔧 Padding horizontal pour les textes */
+  padding: 2px 4px;
   border-radius: 3px;
   flex-shrink: 0;
+  background: white; /* 🔧 Fond blanc pour lisibilité */
 }
 
 /* 🔧 Suppression du hover pour les événements */
@@ -380,14 +384,15 @@ body {
 } */
 
 .event-title { 
-  font-size: 23px !important; /* 🔧 Taille fixe à 23px */
+  font-size: 23px !important;
   font-weight: 600; 
   color: #2D3436;
+  margin-top: 4px; /* 🔧 Petit espace après l'image */
 }
 
 .event-year { 
-  font-size: 20px !important; /* 🔧 Taille fixe à 20px */
-  font-weight: bold !important; /* 🔧 Toujours en gras */
+  font-size: 20px !important;
+  font-weight: bold !important;
   color: #7C1D1D;
 }
 
@@ -397,13 +402,14 @@ body {
   bottom: 0; right: 0;
   width: 20px; height: 20px;
   cursor: nwse-resize;
-  background: linear-gradient(135deg, transparent 50%, rgba(212, 175, 55, 0.5) 50%);
+  background: linear-gradient(135deg, transparent 50%, #2D3436 50%); /* 🔧 Noir au lieu d'or */
   border-bottom-right-radius: 6px;
   transition: background 0.2s;
+  z-index: 10; /* 🔧 Au-dessus du contour */
 }
 
 .resize-corner:hover {
-  background: linear-gradient(135deg, transparent 50%, rgba(212, 175, 55, 0.8) 50%);
+  background: linear-gradient(135deg, transparent 50%, #000 50%); /* 🔧 Noir plus foncé au hover */
 }
 
 /* Ligne de connexion */
