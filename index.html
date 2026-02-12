@@ -138,9 +138,9 @@
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
 
       <h3>Sauvegarde</h3>
-      <div style="padding: 10px; background: #7C1D1D; color: white; border-radius: 6px; font-size: 11px; margin-bottom: 10px;">
-        ⚠️ <strong>Important :</strong> Pensez à sauvegarder régulièrement avec Ctrl+S !<br>
-        Pas de sauvegarde automatique pour éviter la saturation.
+      <div style="padding: 10px; background: #2D3436; color: white; border-radius: 6px; font-size: 11px; margin-bottom: 10px;">
+        ✅ <strong>Sauvegarde automatique activée</strong> (IndexedDB)<br>
+        💾 Téléchargez quand même régulièrement avec Ctrl+S pour sécuriser !
       </div>
       <button class="btn btn-success" onclick="saveToFile()">💾 Télécharger sauvegarde</button>
       <input type="file" id="loadFile" accept=".json" style="display: none;" onchange="loadFromFile(event)" />
@@ -149,9 +149,9 @@
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />
       
       <h3>Maintenance</h3>
-      <button class="btn btn-warning" onclick="clearCache()">🧹 Vider le cache navigateur</button>
+      <button class="btn btn-warning" onclick="clearCache()">🧹 Vider cache & IndexedDB</button>
       <small style="display: block; margin-top: 5px; color: #7C1D1D; font-size: 10px;">
-        Libère de l'espace si le navigateur ralentit
+        Réinitialise tout (pensez à sauvegarder avant !)
       </small>
 
       <hr style="margin: 20px 0; border: none; border-top: 1px solid #E8DCC8;" />

@@ -18,6 +18,127 @@ let settings = {
   showGrid: true
 };
 
+// ==================== INDEXEDDB ====================
+let db = null;
+const DB_NAME = 'FrisArtDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'timeline';
+
+// 🔧 Initialiser IndexedDB
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onerror = () => {
+      console.error('Erreur IndexedDB:', request.error);
+      reject(request.error);
+    };
+    
+    request.onsuccess = () => {
+      db = request.result;
+      console.log('IndexedDB initialisé avec succès');
+      resolve(db);
+    };
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      
+      // Créer l'object store si nécessaire
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        console.log('Object store créé');
+      }
+    };
+  });
+}
+
+// 🔧 Sauvegarder dans IndexedDB
+function saveToIndexedDB() {
+  if (!db) {
+    console.warn('IndexedDB non initialisé');
+    return Promise.reject('DB not initialized');
+  }
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const objectStore = transaction.objectStore(STORE_NAME);
+    
+    const data = {
+      id: 'main',
+      events,
+      periods,
+      artists,
+      settings,
+      timestamp: Date.now()
+    };
+    
+    const request = objectStore.put(data);
+    
+    request.onsuccess = () => {
+      console.log('Données sauvegardées dans IndexedDB');
+      resolve();
+    };
+    
+    request.onerror = () => {
+      console.error('Erreur sauvegarde IndexedDB:', request.error);
+      reject(request.error);
+    };
+  });
+}
+
+// 🔧 Charger depuis IndexedDB
+function loadFromIndexedDB() {
+  if (!db) {
+    console.warn('IndexedDB non initialisé');
+    return Promise.reject('DB not initialized');
+  }
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const objectStore = transaction.objectStore(STORE_NAME);
+    const request = objectStore.get('main');
+    
+    request.onsuccess = () => {
+      const data = request.result;
+      if (data) {
+        events = data.events || [];
+        periods = data.periods || [];
+        artists = data.artists || [];
+        if (data.settings) settings = { ...settings, ...data.settings };
+        
+        console.log('Données chargées depuis IndexedDB');
+        resolve(data);
+      } else {
+        console.log('Aucune donnée dans IndexedDB');
+        resolve(null);
+      }
+    };
+    
+    request.onerror = () => {
+      console.error('Erreur chargement IndexedDB:', request.error);
+      reject(request.error);
+    };
+  });
+}
+
+// 🔧 Vider IndexedDB
+function clearIndexedDB() {
+  if (!db) return Promise.reject('DB not initialized');
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const objectStore = transaction.objectStore(STORE_NAME);
+    const request = objectStore.clear();
+    
+    request.onsuccess = () => {
+      console.log('IndexedDB vidé');
+      resolve();
+    };
+    
+    request.onerror = () => reject(request.error);
+  });
+}
+
 // Pan & Drag
 let isDraggingCanvas = false;
 let dragStart = { x: 0, y: 0 };
@@ -156,11 +277,33 @@ function toggleSection(sectionId) {
 }
 
 // ==================== INIT ====================
-function init() {
+async function init() {
   resizeCanvas();
   setupEventListeners();
-  // 🔧 Plus de chargement automatique depuis le navigateur
-  // L'utilisateur doit charger manuellement un fichier JSON
+  
+  // 🔧 Initialiser IndexedDB et charger les données
+  try {
+    await initDB();
+    await loadFromIndexedDB();
+    
+    // Sync UI avec les données chargées
+    document.getElementById('startYear').value = settings.startYear;
+    document.getElementById('endYear').value = settings.endYear;
+    document.getElementById('scale').value = settings.scale;
+    document.getElementById('timelineY').value = settings.timelineY;
+    document.getElementById('timelineThickness').value = settings.timelineThickness;
+    document.getElementById('zoomLevel').value = settings.zoom;
+    document.getElementById('pagesH').value = settings.pagesH;
+    document.getElementById('pagesV').value = settings.pagesV;
+    document.getElementById('bgColor').value = settings.bgColor;
+    document.getElementById('showGrid').checked = !!settings.showGrid;
+    
+    resizeCanvas();
+  } catch (error) {
+    console.error('Erreur initialisation IndexedDB:', error);
+    showToast('IndexedDB non disponible, mode sans sauvegarde', 'error');
+  }
+  
   applyBackgroundToContainer();
   render();
 }
@@ -208,12 +351,12 @@ function setupEventListeners() {
   // Settings avec debouncing pour la performance
   const debouncedRender = debounce(() => {
     render();
-    saveToLocalStorageSilent();
+    saveToIndexedDBSilent();
   }, 150);
   
   // 🔧 Sauvegarde séparée pour éviter les appels trop fréquents
   const debouncedSave = debounce(() => {
-    saveToLocalStorageSilent();
+    saveToIndexedDBSilent();
   }, 1000);
 
   const updateSetting = (id, key, parser = parseInt, needsResize = false) => {
@@ -232,7 +375,7 @@ function setupEventListeners() {
     settings.scale = parseInt(e.target.value);
     resizeCanvas();
     render(); // Render immédiat pour repositionner
-    saveToLocalStorageSilent();
+    saveToIndexedDBSilent();
   });
   
   updateSetting('pagesH', 'pagesH', parseInt, true);
@@ -259,7 +402,7 @@ function setupEventListeners() {
     settings.showGrid = e.target.checked;
     applyBackgroundToContainer();
     render();
-    saveToLocalStorageSilent();
+    saveToIndexedDBSilent();
   });
 
   document.getElementById('periodHeight')?.addEventListener('input', (e) => {
@@ -282,7 +425,7 @@ function setupEventListeners() {
       else obj.datesSize = size;
     }
     render();
-    saveToLocalStorageSilent();
+    saveToIndexedDBSilent();
   });
 
   document.getElementById('selectedTextBold').addEventListener('change', (e) => {
@@ -299,7 +442,7 @@ function setupEventListeners() {
       else obj.datesBold = bold;
     }
     render();
-    saveToLocalStorageSilent();
+    saveToIndexedDBSilent();
   });
 
   // Canvas interactions
@@ -330,7 +473,7 @@ function setupEventListeners() {
   window.addEventListener('mouseup', () => {
     // 🔧 Sauvegarder uniquement à la fin du drag/resize pour optimiser
     if (isDraggingCanvas || draggedItem || resizingItem || resizingPeriod) {
-      saveToLocalStorageSilent();
+      saveToIndexedDBSilent();
     }
     
     isDraggingCanvas = false;
@@ -930,7 +1073,7 @@ function saveEvent() {
 
   closeModals();
   render();
-  saveToLocalStorageSilent();
+  saveToIndexedDBSilent();
 }
 
 function savePeriod() {
@@ -966,7 +1109,7 @@ function savePeriod() {
 
   closeModals();
   render();
-  saveToLocalStorageSilent();
+  saveToIndexedDBSilent();
 }
 
 function saveArtist() {
@@ -998,7 +1141,7 @@ function saveArtist() {
 
   closeModals();
   render();
-  saveToLocalStorageSilent();
+  saveToIndexedDBSilent();
 }
 
 function editSelectedItem() {
@@ -1054,7 +1197,7 @@ function deleteSelectedItem() {
   document.getElementById('selectedItemActions').style.display = 'none';
   clearSelectedText();
   render();
-  saveToLocalStorageSilent();
+  saveToIndexedDBSilent();
 }
 
 // ==================== ACTIONS ====================
@@ -1063,7 +1206,7 @@ function setScale(newScale) {
   document.getElementById('scale').value = newScale;
   resizeCanvas();
   render(); // 🔧 Render pour repositionner tous les éléments
-  saveToLocalStorageSilent();
+  saveToIndexedDBSilent();
   showToast(`Échelle : ${newScale} ans`, 'info');
 }
 
@@ -1087,7 +1230,7 @@ function applyBackgroundColor() {
   settings.bgColor = document.getElementById('bgColor').value;
   applyBackgroundToContainer();
   render();
-  saveToLocalStorageSilent();
+  saveToIndexedDBSilent();
   showToast('Couleur de fond appliquée', 'success');
 }
 
@@ -1146,17 +1289,18 @@ function loadFromFile(event) {
   event.target.value = '';
 }
 
-// 🔧 Sauvegarde automatique DÉSACTIVÉE car elle sature le localStorage avec les images
-// Utilisez plutôt le bouton "Télécharger sauvegarde" (Ctrl+S)
-function saveToLocalStorageSilent() {
-  // Désactivé pour éviter le dépassement de quota
-  // Les images base64 prennent trop de place dans localStorage (limite ~5-10 Mo)
-  return;
+// 🔧 Sauvegarde automatique dans IndexedDB (asynchrone)
+async function saveToIndexedDBSilent() {
+  try {
+    await saveToIndexedDB();
+  } catch (e) {
+    console.warn('Impossible de sauvegarder dans IndexedDB:', e);
+  }
 }
 
 // 🔧 Fonction pour vider le cache et libérer de l'espace
-function clearCache() {
-  if (!confirm('Vider le cache du navigateur ? Cela supprimera toutes les données temporaires.\n\nAssurez-vous d\'avoir sauvegardé votre travail !')) {
+async function clearCache() {
+  if (!confirm('Vider le cache du navigateur ET IndexedDB ? Cela supprimera toutes les données.\n\nAssurez-vous d\'avoir sauvegardé votre travail avec Ctrl+S !')) {
     return;
   }
   
@@ -1167,10 +1311,34 @@ function clearCache() {
     // Vider le sessionStorage
     sessionStorage.clear();
     
-    // Informer l'utilisateur
-    showToast('Cache vidé ! Rechargez la page pour un redémarrage propre.', 'success');
+    // Vider IndexedDB
+    if (db) {
+      await clearIndexedDB();
+    }
     
-    console.log('Cache vidé avec succès');
+    // Réinitialiser les données
+    events = [];
+    periods = [];
+    artists = [];
+    settings = {
+      startYear: -500,
+      endYear: 2000,
+      scale: 50,
+      timelineY: 300,
+      timelineThickness: 40,
+      zoom: 1,
+      pagesH: 3,
+      pagesV: 2,
+      bgColor: '#F5F0E8',
+      showGrid: true
+    };
+    
+    render();
+    
+    // Informer l'utilisateur
+    showToast('Cache et IndexedDB vidés ! Tout est réinitialisé.', 'success');
+    
+    console.log('Cache et IndexedDB vidés avec succès');
   } catch (e) {
     showToast('Erreur lors du vidage du cache', 'error');
     console.error('Erreur cache:', e);
